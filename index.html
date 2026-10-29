@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#f6f7f2" />
+    <meta
+      name="description"
+      content="Seu pequeno refúgio verde. Corte grama, encontre moedas e evolua suas foices em um jardim 2D aconchegante."
+    />
+    <title>Capim & Cia — Seu pequeno refúgio verde</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="boot-screen" id="boot-screen" role="status">
+      <div class="boot-card">
+        <span class="boot-sprout" aria-hidden="true">✿</span>
+        <span class="eyebrow">CAPIM &amp; CIA</span>
+        <h1>Seu jardim está tomando forma<span>.</span></h1>
+        <p>O jogo começa automaticamente quando terminar de carregar.</p>
+        <div class="boot-help">
+          <strong>Abriu na prévia da conversa e não carregou?</strong>
+          <p>
+            Baixe o ZIP e extraia a pasta inteira. No Windows, abra
+            <b>Capim-e-Cia.exe</b>. Na edição de navegador, abra
+            <b>Capim-e-Cia.html</b> no Chrome ou Edge, fora da prévia.
+          </p>
+        </div>
+        <noscript
+          ><p>
+            Ative o JavaScript no navegador ou use o aplicativo para Windows.
+          </p></noscript
+        >
+      </div>
+    </div>
+    <svg
+      class="icon-defs"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <symbol id="i-leaf" viewBox="0 0 24 24">
+          <path
+            d="M12 21v-9M12 14C4 15 3 9 3 5c6-1 10 3 9 9ZM12 11C12 5 16 2 22 3c0 6-3 10-10 8Z"
+          />
+        </symbol>
+        <symbol id="i-grid" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </symbol>
+        <symbol id="i-scythe" viewBox="0 0 24 24">
+          <path d="m8 22 6-18M5 4c7-4 15-1 16 7-4-5-9-6-16-7Z" />
+        </symbol>
+        <symbol id="i-coin" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M15 8.5c-4-2-7 0-6 2.5 1 2 6 0 6 3s-5 3-7 1.5M12 6v12" />
+        </symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24">
+          <path d="M5 12h14m-5-5 5 5-5 5" />
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+          />
+        </symbol>
+        <symbol id="i-help" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01" />
+        </symbol>
+        <symbol id="i-volume" viewBox="0 0 24 24">
+          <path d="m11 4-6 5H2v6h3l6 5ZM15 8c3 2 3 6 0 8m3-11c5 4 5 10 0 14" />
+        </symbol>
+        <symbol id="i-mute" viewBox="0 0 24 24">
+          <path d="m11 4-6 5H2v6h3l6 5ZM16 9l6 6m0-6-6 6" />
+        </symbol>
+        <symbol id="i-expand" viewBox="0 0 24 24">
+          <path d="M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5" />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+          <path d="M8 5v14M16 5v14" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path d="m8 4 12 8-12 8Z" />
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 6v6l4 2" />
+        </symbol>
+        <symbol id="i-bolt" viewBox="0 0 24 24">
+          <path d="m13 2-9 12h7l-1 8 10-13h-7Z" />
+        </symbol>
+        <symbol id="i-target" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="18" height="18" rx="4" />
+          <path d="M8 12h8m-4-4v8" />
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24">
+          <rect x="5" y="10" width="14" height="11" rx="3" />
+          <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="m5 12 4 4L19 6" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M6 18 18 6" />
+        </symbol>
+        <symbol id="i-book" viewBox="0 0 24 24">
+          <path
+            d="M12 5v16M3 3c4 0 7 0 9 2 2-2 5-2 9-2v16c-4 0-7 0-9 2-2-2-5-2-9-2Z"
+          />
+        </symbol>
+        <symbol id="i-gift" viewBox="0 0 24 24">
+          <path
+            d="M3 8h18v4H3Zm2 4v9h14v-9M12 8v13M12 8C4 8 5 2 8 3c2 0 4 5 4 5Zm0 0c8 0 7-6 4-5-2 0-4 5-4 5Z"
+          />
+        </symbol>
+        <symbol id="i-farm" viewBox="0 0 24 24">
+          <path d="m3 10 9-7 9 7v11H3Zm5 11v-8h8v8m-6-13h4M1 10h22" />
+        </symbol>
+        <symbol id="i-rebirth" viewBox="0 0 24 24">
+          <path
+            d="M20 7V2m0 5h-5M4 17v5m0-5h5M20 7a9 9 0 0 0-15-2M4 17a9 9 0 0 0 15 2M12 6v12m-4-8 4-4 4 4"
+          />
+        </symbol>
+      </defs>
+    </svg>
+
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Capim e Cia, início"
+        ><span class="brand-mark"
+          ><svg><use href="#i-leaf" /></svg></span
+        ><span
+          >capim<span class="brand-amp"> & </span>cia<span class="brand-dot"
+            >.</span
+          ></span
+        ></a
+      >
+      <nav aria-label="Navegação principal" class="main-nav">
+        <button class="nav-item active" id="garden-nav">
+          <svg><use href="#i-grid" /></svg>Meu jardim<span
+            class="nav-dot"
+          ></span>
+        </button>
+        <button class="nav-item" id="workshop-nav">
+          <svg><use href="#i-scythe" /></svg>Oficina<span class="nav-count"
+            >10</span
+          >
+        </button>
+        <button class="nav-item" id="farm-nav">
+          <svg><use href="#i-farm" /></svg>Fazenda
+        </button>
+      </nav>
+      <div class="header-actions">
+        <span class="save-status" id="save-status"
+          ><span></span>Progresso salvo</span
+        ><button
+          class="codes-nav"
+          id="codes-button"
+          title="Resgatar códigos"
+          aria-label="Resgatar códigos"
+        >
+          <svg><use href="#i-gift" /></svg><span>Códigos</span></button
+        ><button
+          class="icon-button"
+          id="help-button"
+          aria-label="Como jogar"
+          title="Como jogar"
+        >
+          <svg><use href="#i-help" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="page-heading" aria-labelledby="page-title">
+        <div>
+          <div class="eyebrow">
+            <span class="tiny-leaf">✦</span> MENOS PRESSA, MAIS VERDE
+          </div>
+          <h1 id="page-title">Seu pequeno refúgio verde<span>.</span></h1>
+          <p>
+            Corte, colete, evolua. Um pedacinho de natureza para chamar de seu.
+          </p>
+        </div>
+        <div class="weather">
+          <span class="weather-icon"
+            ><svg><use href="#i-sun" /></svg
+          ></span>
+          <div>
+            <strong>Um belo dia para cuidar</strong
+            ><span
+              >Jardim ensolarado <span class="weather-dot">·</span> 24°C</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <div class="game-layout">
+        <section class="garden-panel" aria-label="Jardim jogável">
+          <div class="garden-topbar">
+            <div class="garden-name">
+              <span class="live-dot"></span>
+              <h2 id="garden-name">Jardim do sossego</h2>
+              <span class="garden-id">Nº 001</span>
+            </div>
+            <div class="garden-tools">
+              <button
+                class="icon-button"
+                id="sound-button"
+                aria-label="Ativar sons"
+                aria-pressed="false"
+                title="Ativar sons"
+              >
+                <svg><use href="#i-mute" /></svg></button
+              ><button
+                class="icon-button"
+                id="pause-button"
+                aria-label="Pausar jogo"
+                aria-pressed="false"
+                title="Pausar (P)"
+              >
+                <svg><use href="#i-pause" /></svg></button
+              ><button
+                class="icon-button"
+                id="fullscreen-button"
+                aria-label="Expandir jardim"
+                title="Expandir jardim"
+              >
+                <svg><use href="#i-expand" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="game-viewport" id="game-viewport">
+            <canvas
+              id="garden"
+              width="896"
+              height="640"
+              tabindex="0"
+              aria-label="Jardim 2D. Use WASD ou as setas para andar e segure espaço para cortar grama."
+            ></canvas>
+            <div class="world-tag">
+              <span class="world-tag-dot"></span>SEU JARDIM, SEU RITMO
+            </div>
+            <div class="world-coins">
+              <span class="pixel-coin"></span><span id="world-coins">0</span>
+            </div>
+            <div class="garden-tip" id="garden-tip">
+              <span class="tip-spark">✦</span
+              ><span>A grama dourada esconde um pequeno tesouro.</span>
+            </div>
+            <div class="pause-overlay" id="pause-overlay" hidden>
+              <span class="pause-flower">✿</span>
+              <h2>Uma pausa para respirar.</h2>
+              <p>Seu jardim espera por você.</p>
+              <button class="button primary" id="resume-button">
+                <svg><use href="#i-play" /></svg>Voltar ao jardim
+              </button>
+            </div>
+            <div class="touch-controls" id="touch-controls">
+              <div
+                class="joystick"
+                id="joystick"
+                role="group"
+                aria-label="Controle de movimento"
+              >
+                <span class="joystick-arrows">✥</span
+                ><span class="joystick-knob" id="joystick-knob"></span>
+              </div>
+              <button
+                class="touch-cut"
+                id="touch-cut"
+                aria-label="Segure para cortar"
+              >
+                <svg><use href="#i-scythe" /></svg><span>CORTAR</span>
+              </button>
+            </div>
+          </div>
+          <div class="game-controls">
+            <div class="keyboard-hints">
+              <span
+                ><span class="key-group"
+                  ><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span
+                ><span class="or">ou</span
+                ><span class="arrow-key">↔</span> Mover</span
+              ><span class="control-divider"></span
+              ><span
+                ><kbd class="space-key">ESPAÇO</kbd> Cortar
+                <span class="hold-label">(segure)</span></span
+              >
+            </div>
+            <label class="auto-control"
+              ><span>Corte automático</span
+              ><input type="checkbox" id="auto-cut" role="switch" /><span
+                class="switch-track"
+              ></span
+            ></label>
+          </div>
+          <div class="garden-stats">
+            <div>
+              <span class="stat-icon green"
+                ><svg><use href="#i-leaf" /></svg></span
+              ><span
+                ><strong id="cut-count">0</strong
+                ><small>gramas cortadas</small></span
+              >
+            </div>
+            <div>
+              <span class="stat-icon gold"
+                ><svg><use href="#i-coin" /></svg></span
+              ><span
+                ><strong id="total-earned">0</strong
+                ><small>moedas colhidas</small></span
+              >
+            </div>
+            <div>
+              <span class="stat-icon blue"
+                ><svg><use href="#i-clock" /></svg></span
+              ><span
+                ><strong>30 <em>segundos</em></strong
+                ><small>para crescer de novo</small></span
+              >
+            </div>
+            <span class="stats-sprout"
+              >feito para desacelerar <svg><use href="#i-leaf" /></svg
+            ></span>
+          </div>
+        </section>
+
+        <aside class="sidebar" aria-label="Equipamento e progresso">
+          <section class="wallet-card">
+            <div>
+              <span class="eyebrow">SUAS MOEDAS</span>
+              <div class="balance">
+                <span class="coin-large"
+                  ><svg><use href="#i-coin" /></svg></span
+                ><strong id="balance">0</strong
+                ><span class="test-badge" id="test-badge" hidden>TESTE</span>
+              </div>
+            </div>
+            <span class="wallet-decoration" aria-hidden="true">✦</span>
+            <p id="wallet-note">Um corte de cada vez. Elas vão chegar.</p>
+          </section>
+          <section class="equipment-card">
+            <div class="card-title">
+              <h2>Sua companheira</h2>
+              <span class="badge" id="level-badge">NÍVEL 01</span>
+            </div>
+            <div class="scythe-showcase">
+              <div class="showcase-orbit"></div>
+              <canvas
+                id="scythe-art"
+                width="224"
+                height="144"
+                aria-hidden="true"
+              ></canvas
+              ><span class="showcase-spark one">✧</span
+              ><span class="showcase-spark two">✦</span>
+            </div>
+            <div class="tool-heading">
+              <h3 id="tool-name">Foice de Madeira</h3>
+              <span class="equipped-tag"><span></span>Equipada</span>
+            </div>
+            <p class="tool-description" id="tool-description">
+              Todo grande jardim começa com um pequeno corte.
+            </p>
+            <div class="tool-specs">
+              <div>
+                <span
+                  ><svg><use href="#i-bolt" /></svg>Velocidade</span
+                ><strong id="tool-speed">1,10s <small>/ corte</small></strong
+                ><span class="spec-meter"><i id="speed-meter"></i></span>
+              </div>
+              <div>
+                <span
+                  ><svg><use href="#i-target" /></svg>Área de corte</span
+                ><strong id="tool-area">5 <small>blocos</small></strong
+                ><span class="spec-meter"><i id="area-meter"></i></span>
+              </div>
+            </div>
+            <div class="upgrade-box">
+              <div class="next-upgrade-heading">
+                <span>PRÓXIMA MELHORIA</span
+                ><span id="next-level">02 / 10</span>
+              </div>
+              <div class="next-tool">
+                <span class="next-tool-icon"
+                  ><svg><use href="#i-scythe" /></svg
+                ></span>
+                <div>
+                  <strong id="next-name">Foice de Cobre</strong
+                  ><span id="next-benefit"
+                    >Mais rápida. Mais espaço para crescer.</span
+                  >
+                </div>
+              </div>
+              <div class="upgrade-progress">
+                <div>
+                  <span id="upgrade-progress-label">0 de 60 moedas</span
+                  ><span id="upgrade-percent">0%</span>
+                </div>
+                <span class="progress-track"
+                  ><i id="upgrade-progress-bar"></i
+                ></span>
+              </div>
+              <button
+                class="button upgrade-button"
+                id="upgrade-button"
+                disabled
+              >
+                <svg><use href="#i-lock" /></svg
+                ><span id="upgrade-label">Melhorar foice</span
+                ><span class="upgrade-price"
+                  ><span class="pixel-coin mini"></span
+                  ><span id="upgrade-cost">60</span></span
+                >
+              </button>
+            </div>
+            <button class="text-link" id="all-scythes">
+              Conheça as 10 foices <svg><use href="#i-arrow" /></svg>
+            </button>
+          </section>
+          <button class="progress-summary" id="progress-button">
+            <span class="progress-summary-icon"
+              ><svg><use href="#i-farm" /></svg></span
+            ><span
+              ><strong>Cultive a próxima fase</strong
+              ><small id="farm-summary">Fazenda 1/5 · 0 rebirths</small></span
+            ><svg><use href="#i-arrow" /></svg>
+          </button>
+          <section class="field-note">
+            <span class="note-icon"
+              ><svg><use href="#i-book" /></svg
+            ></span>
+            <div>
+              <h3>Nem todo verde é igual.</h3>
+              <p>
+                Fique de olho nas flores e nos brilhinhos. Algumas gramas valem
+                mais!
+              </p>
+              <button id="guide-button">
+                Abrir guia do jardim <span>↗</span>
+              </button>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      <section class="grass-guide" aria-labelledby="grass-guide-title">
+        <div class="guide-intro">
+          <span class="eyebrow">PEQUENOS TESOUROS</span>
+          <h2 id="grass-guide-title">O que cresce por aqui</h2>
+          <p>Cada tufo tem sua surpresa.</p>
+        </div>
+        <div class="grass-type">
+          <span class="grass-swatch common"
+            ><i></i><i></i><i></i><i></i><i></i
+          ></span>
+          <div>
+            <h3>Grama comum <span>ABUNDANTE</span></h3>
+            <p>O verde de todo dia.</p>
+            <strong><span class="pixel-coin mini"></span>1 moeda</strong>
+          </div>
+        </div>
+        <div class="grass-type">
+          <span class="grass-swatch flower"
+            ><i></i><i></i><i></i><i></i><i></i><b>✿</b></span
+          >
+          <div>
+            <h3>Grama florida <span>ESPECIAL</span></h3>
+            <p>Um toque de cor, um extra de sorte.</p>
+            <strong><span class="pixel-coin mini"></span>4 moedas</strong>
+          </div>
+        </div>
+        <div class="grass-type">
+          <span class="grass-swatch golden"
+            ><i></i><i></i><i></i><i></i><i></i><b>✦</b></span
+          >
+          <div>
+            <h3>Grama dourada <span>RARA</span></h3>
+            <p>Quem procura, encontra ouro.</p>
+            <strong><span class="pixel-coin mini"></span>12 moedas</strong>
+          </div>
+        </div>
+      </section>
+      <footer>
+        <span
+          ><span class="footer-dot"></span>Um jardim finito. Infinitas pequenas
+          conquistas.</span
+        ><span
+          >Feito para florescer no seu tempo <svg><use href="#i-leaf" /></svg
+        ></span>
+      </footer>
+    </main>
+
+    <dialog id="workshop-dialog" class="modal workshop-modal">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">DO PRIMEIRO CORTE À LENDA</span>
+          <h2>A oficina de foices<span>.</span></h2>
+          <p>Sua próxima conquista está logo ali.</p>
+        </div>
+        <button
+          class="icon-button modal-close"
+          data-close
+          aria-label="Fechar oficina"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="workshop-wallet">
+        <span class="pixel-coin"></span><strong id="workshop-balance">0</strong
+        ><span>moedas disponíveis</span
+        ><span class="workshop-note"
+          >As melhorias são desbloqueadas em ordem.</span
+        >
+      </div>
+      <div class="scythe-grid" id="scythe-grid"></div>
+      <div class="modal-footer">
+        <svg><use href="#i-leaf" /></svg>Corte gramas maduras, junte moedas e
+        encontre a sua próxima foice.
+      </div>
+    </dialog>
+    <dialog id="codes-dialog" class="modal codes-modal">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">UM PRESENTE PARA O SEU JARDIM</span>
+          <h2>Pequenos códigos, boas surpresas<span>.</span></h2>
+        </div>
+        <button
+          class="icon-button modal-close"
+          data-close
+          aria-label="Fechar códigos"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="code-illustration">
+        <svg><use href="#i-gift" /></svg><span>✦</span>
+      </div>
+      <p class="help-intro">
+        Tem um código? Digite abaixo para resgatar sua recompensa.
+      </p>
+      <form id="code-form">
+        <label for="code-input">SEU CÓDIGO</label>
+        <div class="code-input-row">
+          <input
+            id="code-input"
+            name="code"
+            placeholder="Digite o código aqui"
+            autocomplete="off"
+            autocapitalize="characters"
+            autofocus
+            spellcheck="false"
+            maxlength="32"
+            required
+            aria-describedby="code-feedback"
+          /><button class="button primary" type="submit">
+            Resgatar <svg><use href="#i-arrow" /></svg>
+          </button>
+        </div>
+        <p
+          id="code-feedback"
+          class="code-feedback"
+          role="status"
+          aria-live="polite"
+        ></p>
+      </form>
+      <div class="test-mode-panel" id="test-mode-panel" hidden>
+        <span class="test-mode-icon">∞</span>
+        <div>
+          <strong>Dinheiro infinito ativado</strong>
+          <p>Foices e fazenda sem custo. Seu saldo real continua guardado.</p>
+        </div>
+        <button id="disable-test-money">Desativar</button>
+      </div>
+      <p class="code-hint">
+        Para testar o jogo, experimente <code>MONEY</code>.
+      </p>
+    </dialog>
+    <dialog id="farm-dialog" class="modal farm-modal">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">CRIE RAÍZES. ALCANCE NOVOS COMEÇOS.</span>
+          <h2>O próximo capítulo do seu jardim<span>.</span></h2>
+          <p>Cuide da fazenda hoje. Colha ainda mais amanhã.</p>
+        </div>
+        <button
+          class="icon-button modal-close"
+          data-close
+          aria-label="Fechar fazenda"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="farm-overview">
+        <span
+          ><svg><use href="#i-coin" /></svg
+          ><strong id="farm-wallet">0</strong> moedas</span
+        ><span
+          ><svg><use href="#i-bolt" /></svg>Colheita
+          <strong id="harvest-multiplier">×1,00</strong></span
+        ><span
+          ><svg><use href="#i-rebirth" /></svg
+          ><strong id="rebirth-count">0</strong> rebirths</span
+        >
+      </div>
+      <div class="farm-columns">
+        <section class="farm-upgrades">
+          <div class="section-eyebrow">
+            <svg><use href="#i-farm" /></svg>SUA FAZENDA
+            <span id="farm-level-badge">NÍVEL 1 / 5</span>
+          </div>
+          <div id="farm-roadmap" class="farm-roadmap"></div>
+          <div class="farm-upgrade-info">
+            <p id="farm-upgrade-description"></p>
+            <small
+              >Mais flores e gramas douradas nos próximos crescimentos. A grama
+              continua pronta em 30 segundos.</small
+            >
+          </div>
+          <button class="button primary" id="farm-upgrade-button" disabled>
+            Melhorar fazenda
+          </button>
+        </section>
+        <section class="rebirth-card">
+          <span class="rebirth-art"
+            ><svg><use href="#i-rebirth" /></svg><i>✦</i></span
+          ><span class="eyebrow">TODO FIM É UMA SEMENTE</span>
+          <h3>Renasça mais forte.</h3>
+          <p>
+            Chegue à <strong>Foice Lendária</strong> e comece um novo ciclo com
+            um bônus permanente de moedas.
+          </p>
+          <div class="rebirth-bonus">
+            <span>PRÓXIMO BÔNUS PERMANENTE</span
+            ><strong id="next-rebirth-bonus">+25%</strong
+            ><small>+25% de moedas por rebirth, somados entre si.</small>
+          </div>
+          <div class="rebirth-keeps">
+            <span
+              ><svg><use href="#i-check" /></svg>Mantém fazenda e
+              estatísticas</span
+            ><span
+              ><svg><use href="#i-rebirth" /></svg>Reinicia moedas e foice</span
+            >
+          </div>
+          <p class="rebirth-requirement" id="rebirth-requirement">
+            Alcance a foice 10/10 para desbloquear.
+          </p>
+          <button class="button rebirth-button" id="rebirth-button" disabled>
+            <svg><use href="#i-lock" /></svg>Fazer rebirth
+          </button>
+          <div class="rebirth-confirm" id="rebirth-confirm" hidden>
+            <strong>Plantar um novo começo?</strong>
+            <p>
+              Seu saldo será zerado e você voltará à Foice de Madeira. A
+              fazenda, as estatísticas e os bônus permanentes ficam com você.
+            </p>
+            <div>
+              <button class="button" id="cancel-rebirth">Agora não</button
+              ><button class="button primary" id="confirm-rebirth">
+                Sim, renascer
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </dialog>
+    <dialog id="help-dialog" class="modal help-modal">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">BEM-VINDO AO SEU CANTINHO</span>
+          <h2>Um corte de cada vez<span>.</span></h2>
+        </div>
+        <button
+          class="icon-button modal-close"
+          data-close
+          aria-label="Fechar ajuda"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p class="help-intro">
+        Aqui não tem pressa, inimigos ou vidas para perder. Só você, sua foice e
+        um jardim cheio de possibilidades.
+      </p>
+      <div class="help-steps">
+        <div>
+          <span>01</span>
+          <div>
+            <h3>Explore o jardim</h3>
+            <p>
+              Ande com <b>WASD</b> ou as <b>setas</b>. No celular, use o
+              controle no canto da tela. As cercas, pedras e arbustos delimitam
+              o caminho.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span>02</span>
+          <div>
+            <h3>Corte e colha suas moedas</h3>
+            <p>
+              Segure <b>Espaço</b>, toque em <b>Cortar</b> ou ative o
+              <b>corte automático</b>. Só a grama totalmente crescida rende
+              moedas: comum <b>1</b>, florida <b>4</b>, dourada <b>12</b>.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span>03</span>
+          <div>
+            <h3>Cuide da sua companheira</h3>
+            <p>
+              Use as moedas para melhorar sua foice na oficina. São
+              <b>10 foices</b>, cada vez mais rápidas e com maior área de corte.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span>04</span>
+          <div>
+            <h3>Dê tempo ao tempo</h3>
+            <p>
+              A grama volta a crescer gradativamente e fica pronta em
+              <b>30 segundos</b>. Seu progresso é salvo neste navegador.
+              <b>P</b> pausa o jogo; o jardim continua crescendo.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span>05</span>
+          <div>
+            <h3>Faça a fazenda florescer</h3>
+            <p>
+              Na aba <b>Fazenda</b>, desbloqueie <b>5 níveis</b> de melhorias.
+              Cada nível muda o cenário, aumenta o bônus de moedas e a chance de
+              gramas especiais, mantendo o crescimento em 30 segundos.
+            </p>
+          </div>
+        </div>
+        <div>
+          <span>06</span>
+          <div>
+            <h3>Plante um novo começo</h3>
+            <p>
+              A <b>Foice Lendária</b> libera o <b>rebirth</b>: moedas e foice
+              recomeçam, a fazenda e as estatísticas ficam e você recebe
+              <b>+25% de moedas</b> permanente por ciclo. Para testar tudo, abra
+              <b>Códigos</b> e resgate <b>MONEY</b> para dinheiro infinito.
+            </p>
+          </div>
+        </div>
+      </div>
+      <button class="button primary help-start" id="help-start">
+        Vamos para o jardim <svg><use href="#i-arrow" /></svg>
+      </button>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <div
+      class="sr-only"
+      id="game-announcement"
+      role="status"
+      aria-live="polite"
+    ></div>
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>
