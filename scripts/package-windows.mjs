@@ -18,6 +18,11 @@ await rm(staging, { recursive: true, force: true });
 await mkdir(staging, { recursive: true });
 await cp(join(root, "desktop"), join(staging, "desktop"), { recursive: true });
 await cp(join(root, "dist"), join(staging, "dist"), { recursive: true });
+for (const name of [
+  "Capim-e-Cia-Navegador.zip",
+  "Capim-e-Cia-Navegador.zip.sha256",
+])
+  await rm(join(staging, "dist", name));
 await writeFile(
   join(staging, "package.json"),
   JSON.stringify(
@@ -60,7 +65,7 @@ const [appPath] = await packager({
   },
 });
 
-const instructions = `CAPIM & CIA — WINDOWS\r\n\r\nCOMO JOGAR\r\n1. Extraia TODO o ZIP para uma pasta.\r\n2. Abra Capim-e-Cia.exe com dois cliques.\r\n3. Nao e necessario instalar Node.js, navegador ou usar internet.\r\n\r\nCONTROLES\r\nWASD / setas: andar\r\nSegure Espaco / botao esquerdo do mouse no jardim: cortar\r\nP: pausar\r\nF11: tela cheia\r\nAlt: mostrar o menu do aplicativo\r\nCtrl+S: salvar\r\nF1: ajuda\r\n\r\nRECURSOS\r\n10 foices, 5 niveis da fazenda e rebirth com bonus permanente.\r\nCodigos > MONEY: dinheiro infinito para testes; pode ser desativado.\r\n\r\nSALVAMENTO\r\nO progresso e salvo automaticamente em %APPDATA%\\Capim-e-Cia.\r\nPode mover a pasta do jogo sem perder o progresso neste computador.\r\nO progresso do navegador e separado do aplicativo.\r\n\r\nATALHO\r\nOpcional: execute Criar-atalho.bat para criar um atalho na area de trabalho.\r\nSe mover a pasta depois disso, crie o atalho novamente.\r\n\r\nCOMPATIBILIDADE\r\nWindows 10/11 de 64 bits. Este pacote portatil nao usa instalador.\r\nMantenha o executavel e os demais arquivos juntos.\r\n`;
+const instructions = `CAPIM & CIA — WINDOWS\r\n\r\nCOMO JOGAR\r\n1. Extraia TODO o ZIP para uma pasta.\r\n2. Abra Capim-e-Cia.exe com dois cliques.\r\n3. Nao e necessario instalar Node.js, navegador ou usar internet.\r\n\r\nCONTROLES\r\nWASD / setas: andar\r\nSegure Espaco / mouse: usar a acao escolhida\r\n1: colher e defender | 2: plantar | 3: regar | 4: reparar\r\nR perto do poco: reabastecer agua\r\nP: pausar\r\nF11: tela cheia\r\nAlt: mostrar o menu do aplicativo\r\nCtrl+S: salvar\r\nF1: ajuda\r\n\r\nRECURSOS\r\nCampo 41x29, 8 culturas, dia de 4 min e noite de 1 min.\r\nLobos, reparos, pocos, cachorro coletor e robo de rega com upgrades.\r\nExperiencia, arvore de habilidades, ouro e diamantes.\r\nCaixas: 6 raridades, 4 graus e fusao de 5 foices iguais.\r\nCodigos > MONEY: ouro e diamantes infinitos para testes; pode ser desativado.\r\n\r\nSALVAMENTO\r\nO progresso e salvo automaticamente em %APPDATA%\\Capim-e-Cia.\r\nPode mover a pasta do jogo sem perder o progresso neste computador.\r\nO progresso do navegador e separado do aplicativo.\r\n\r\nATALHO\r\nOpcional: execute Criar-atalho.bat para criar um atalho na area de trabalho.\r\nSe mover a pasta depois disso, crie o atalho novamente.\r\n\r\nCOMPATIBILIDADE\r\nWindows 10/11 de 64 bits. Este pacote portatil nao usa instalador.\r\nMantenha o executavel e os demais arquivos juntos.\r\n`;
 await writeFile(join(appPath, "LEIA-ME.txt"), instructions, "utf8");
 await writeFile(
   join(appPath, "Criar-atalho.bat"),

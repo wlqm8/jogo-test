@@ -57,6 +57,8 @@ jobs:
           fi
           gh release upload "$tag" \
             release/Capim-e-Cia-Windows-x64.zip \
-            release/Capim-e-Cia-Windows-x64.zip.sha256 --clobber
+            release/Capim-e-Cia-Windows-x64.zip.sha256 \
+            dist/Capim-e-Cia-Navegador.zip \
+            dist/Capim-e-Cia-Navegador.zip.sha256 --clobber
           gh release edit "$tag" --draft=false --latest \
             --target "$GITHUB_SHA" --notes-file docs/RELEASE-WINDOWS.md

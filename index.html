@@ -57,6 +57,12 @@
         <symbol id="i-scythe" viewBox="0 0 24 24">
           <path d="m8 22 6-18M5 4c7-4 15-1 16 7-4-5-9-6-16-7Z" />
         </symbol>
+        <symbol id="i-bucket" viewBox="0 0 24 24">
+          <path d="M4 9h16l-2 12H6ZM6 9V7a6 6 0 0 1 12 0v2M8 14l1 4" />
+        </symbol>
+        <symbol id="i-hoe" viewBox="0 0 24 24">
+          <path d="m7 22 5-19m-3 2 11 3-2 8-5-2m-4-9 10 3" />
+        </symbol>
         <symbol id="i-coin" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" />
           <path d="M15 8.5c-4-2-7 0-6 2.5 1 2 6 0 6 3s-5 3-7 1.5M12 6v12" />
@@ -184,16 +190,14 @@
             <span class="tiny-leaf">✦</span> MENOS PRESSA, MAIS VERDE
           </div>
           <h1 id="page-title">Seu pequeno refúgio verde<span>.</span></h1>
-          <p>
-            Corte, colete, evolua. Um pedacinho de natureza para chamar de seu.
-          </p>
+          <p>Plante de dia. Proteja à noite. Faça sua fazenda florescer.</p>
         </div>
         <div class="weather">
           <span class="weather-icon"
             ><svg><use href="#i-sun" /></svg
           ></span>
           <div>
-            <strong>Um belo dia para cuidar</strong
+            <strong id="weather-title">Um novo dia no campo</strong
             ><span
               >Jardim ensolarado <span class="weather-dot">·</span> 24°C</span
             >
@@ -236,6 +240,47 @@
               </button>
             </div>
           </div>
+          <div class="field-toolbar">
+            <div
+              class="field-actions"
+              role="group"
+              aria-label="Ação da ferramenta"
+            >
+              <button
+                data-action="harvest"
+                class="selected"
+                aria-pressed="true"
+              >
+                <kbd>1</kbd><span>Colher / defender</span>
+              </button>
+              <button data-action="plant" aria-pressed="false">
+                <kbd>2</kbd><span>Plantar</span>
+              </button>
+              <button data-action="water" aria-pressed="false">
+                <kbd>3</kbd><span>Regar</span>
+              </button>
+              <button data-action="repair" aria-pressed="false">
+                <kbd>4</kbd><span>Reparar</span>
+              </button>
+            </div>
+            <label class="seed-picker"
+              ><span>SEMENTE</span
+              ><select
+                id="seed-select"
+                aria-label="Semente selecionada"
+              ></select
+            ></label>
+            <button
+              class="water-reserve"
+              id="refill-button"
+              title="Aproxime-se do poço e pressione R"
+            >
+              <span>💧</span><strong id="water-stock">12/24</strong><kbd>R</kbd>
+            </button>
+            <button class="market-open" id="market-button">
+              Mercado <svg><use href="#i-arrow" /></svg>
+            </button>
+          </div>
           <div class="game-viewport" id="game-viewport">
             <canvas
               id="garden"
@@ -244,15 +289,31 @@
               tabindex="0"
               aria-label="Jardim 2D. Use WASD ou as setas para andar e segure espaço para cortar grama."
             ></canvas>
-            <div class="world-tag">
-              <span class="world-tag-dot"></span>SEU JARDIM, SEU RITMO
+            <div class="world-tag cycle-hud">
+              <span id="phase-icon">☀</span><span id="cycle-label">DIA 1</span
+              ><strong id="phase-time">04:00</strong>
             </div>
             <div class="world-coins">
-              <span class="pixel-coin"></span><span id="world-coins">0</span>
+              <span class="pixel-coin"></span><span id="world-coins">0</span
+              ><span class="diamond-symbol">◇</span
+              ><span id="world-diamonds">0</span>
             </div>
             <div class="garden-tip" id="garden-tip">
               <span class="tip-spark">✦</span
-              ><span>A grama dourada esconde um pequeno tesouro.</span>
+              ><span id="context-tip"
+                >Você ganhou 24 sementes de capim. Selecione Plantar para
+                começar.</span
+              >
+            </div>
+            <div id="threat-status" class="threat-status" hidden></div>
+            <div class="minimap-wrap">
+              <canvas
+                id="minimap"
+                width="123"
+                height="87"
+                aria-label="Mapa da fazenda: azul é o poço, branco é a casa, amarelo é você."
+              ></canvas
+              ><span>CASA ▪ POÇO ▪ VOCÊ</span>
             </div>
             <div class="pause-overlay" id="pause-overlay" hidden>
               <span class="pause-flower">✿</span>
@@ -277,7 +338,8 @@
                 id="touch-cut"
                 aria-label="Segure para cortar"
               >
-                <svg><use href="#i-scythe" /></svg><span>CORTAR</span>
+                <svg><use href="#i-scythe" /></svg
+                ><span id="touch-action-label">COLHER</span>
               </button>
             </div>
           </div>
@@ -290,12 +352,13 @@
                 ><span class="arrow-key">↔</span> Mover</span
               ><span class="control-divider"></span
               ><span
-                ><kbd class="space-key">ESPAÇO</kbd> Cortar
+                ><kbd class="space-key">ESPAÇO</kbd>
+                <span id="action-hint">Colher / defender</span>
                 <span class="hold-label">(segure)</span></span
               >
             </div>
             <label class="auto-control"
-              ><span>Corte automático</span
+              ><span>Repetir ação</span
               ><input type="checkbox" id="auto-cut" role="switch" /><span
                 class="switch-track"
               ></span
@@ -333,9 +396,56 @@
         </section>
 
         <aside class="sidebar" aria-label="Equipamento e progresso">
+          <button class="experience-card" id="skills-button">
+            <span class="level-orbit" id="player-level">1</span
+            ><span
+              ><strong
+                >Nível do fazendeiro
+                <b id="skill-points-badge">0 pontos</b></strong
+              ><small id="xp-label">0 / 40 XP</small
+              ><span class="xp-track"><i id="xp-progress"></i></span></span
+            ><span class="xp-arrow">↗</span>
+          </button>
+          <section class="inventory-card">
+            <div class="card-title">
+              <h2>Seu inventário</h2>
+              <span id="equipped-name">FOICE</span>
+            </div>
+            <div class="inventory-tools">
+              <button
+                data-equip="harvest"
+                class="selected"
+                title="Foice: colher e defender"
+              >
+                <svg><use href="#i-scythe" /></svg><strong>Foice</strong
+                ><small>Colher · defender</small></button
+              ><button data-equip="water" title="Balde: regar">
+                <svg><use href="#i-bucket" /></svg><strong>Balde</strong
+                ><small>Regar · poço</small></button
+              ><button data-equip="repair" title="Enxada: plantar e reparar">
+                <svg><use href="#i-hoe" /></svg><strong>Enxada</strong
+                ><small>Plantar · reparar</small>
+              </button>
+            </div>
+          </section>
+          <button class="life-launcher" id="life-button">
+            <span>🌱</span
+            ><span
+              ><strong>Sementes e ajudantes</strong
+              ><small id="helpers-summary"
+                >Bento e Gota aguardam você</small
+              ></span
+            ><svg><use href="#i-arrow" /></svg>
+          </button>
+          <section class="daily-order">
+            <span class="eyebrow">PEDIDO DO DIA</span>
+            <h3 id="order-title">Primeiras colheitas</h3>
+            <p id="order-progress">Colha 12 tufos de capim</p>
+            <button id="claim-order" disabled>Receber bônus</button>
+          </section>
           <section class="wallet-card">
             <div>
-              <span class="eyebrow">SUAS MOEDAS</span>
+              <span class="eyebrow">SEU OURO</span>
               <div class="balance">
                 <span class="coin-large"
                   ><svg><use href="#i-coin" /></svg></span
@@ -344,6 +454,10 @@
               </div>
             </div>
             <span class="wallet-decoration" aria-hidden="true">✦</span>
+            <div class="diamond-balance">
+              <span>◇</span><strong id="balance-diamonds">0</strong
+              ><small>diamantes para caixas</small>
+            </div>
             <p id="wallet-note">Um corte de cada vez. Elas vão chegar.</p>
           </section>
           <section class="equipment-card">
@@ -422,7 +536,7 @@
               </button>
             </div>
             <button class="text-link" id="all-scythes">
-              Conheça as 10 foices <svg><use href="#i-arrow" /></svg>
+              Coleção e fusões <svg><use href="#i-arrow" /></svg>
             </button>
           </section>
           <button class="progress-summary" id="progress-button">
@@ -514,8 +628,9 @@
         </button>
       </div>
       <div class="workshop-wallet">
-        <span class="pixel-coin"></span><strong id="workshop-balance">0</strong
-        ><span>moedas disponíveis</span
+        <span class="diamond-symbol">◇</span
+        ><strong id="workshop-balance">0</strong
+        ><span>diamantes disponíveis</span
         ><span class="workshop-note"
           >As melhorias são desbloqueadas em ordem.</span
         >
@@ -620,8 +735,8 @@
           <div class="farm-upgrade-info">
             <p id="farm-upgrade-description"></p>
             <small
-              >Mais flores e gramas douradas nos próximos crescimentos. A grama
-              continua pronta em 30 segundos.</small
+              >Construções aumentam a produção. A pesquisa de Botânica no
+              Mercado melhora as chances das colheitas especiais.</small
             >
           </div>
           <button class="button primary" id="farm-upgrade-button" disabled>
@@ -651,7 +766,7 @@
             >
           </div>
           <p class="rebirth-requirement" id="rebirth-requirement">
-            Alcance a foice 10/10 para desbloquear.
+            Nível 10 · foice épica G1 · ouro para recomeçar.
           </p>
           <button class="button rebirth-button" id="rebirth-button" disabled>
             <svg><use href="#i-lock" /></svg>Fazer rebirth
@@ -671,6 +786,98 @@
           </div>
         </section>
       </div>
+    </dialog>
+    <dialog id="life-dialog" class="modal life-modal">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">CADA COLHEITA É UM NOVO COMEÇO</span>
+          <h2>Uma fazenda com planos<span>.</span></h2>
+          <p>
+            Escolha suas sementes, cuide dos parceiros e encontre seu jeito de
+            crescer.
+          </p>
+        </div>
+        <button
+          class="icon-button modal-close"
+          data-close
+          aria-label="Fechar gerenciamento"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="life-overview">
+        <span>MOEDAS <strong id="life-balance">0</strong></span
+        ><span>FAZENDEIRO <strong id="life-level">Nível 1</strong></span
+        ><span>HABILIDADES <strong id="life-points">0 pontos</strong></span>
+      </div>
+      <div class="life-tabs" role="tablist" aria-label="Gerenciar fazenda">
+        <button
+          data-life-tab="seeds"
+          id="tab-seeds"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panel-seeds"
+          class="selected"
+        >
+          🌱 Sementes</button
+        ><button
+          data-life-tab="helpers"
+          id="tab-helpers"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-helpers"
+        >
+          🐾 Ajudantes</button
+        ><button
+          data-life-tab="skills"
+          id="tab-skills"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-skills"
+        >
+          ✦ Habilidades
+        </button>
+      </div>
+      <section
+        id="panel-seeds"
+        class="life-panel"
+        role="tabpanel"
+        aria-labelledby="tab-seeds"
+      >
+        <p class="panel-intro">
+          Você começa com 24 sementes de capim. Cada plantio usa 1 semente.
+          Regue com o balde para crescer; busque água no poço com <b>R</b>.
+        </p>
+        <div id="quality-research" class="quality-research"></div>
+        <div id="seed-shop" class="seed-shop"></div>
+      </section>
+      <section
+        id="panel-helpers"
+        class="life-panel"
+        role="tabpanel"
+        aria-labelledby="tab-helpers"
+        hidden
+      >
+        <p class="panel-intro">
+          Primeiro compre seu parceiro, depois evolua até o nível 3. Eles
+          continuam com você após o rebirth.
+        </p>
+        <div id="helper-shop" class="helper-shop"></div>
+      </section>
+      <section
+        id="panel-skills"
+        class="life-panel"
+        role="tabpanel"
+        aria-labelledby="tab-skills"
+        hidden
+      >
+        <p class="panel-intro">
+          Ganhe experiência ao trabalhar e defender a fazenda. Cada novo nível
+          dá <b>1 ponto</b>. Habilidades e experiência permanecem após o
+          rebirth.
+        </p>
+        <div id="skill-tree" class="skill-tree"></div>
+      </section>
     </dialog>
     <dialog id="help-dialog" class="modal help-modal">
       <div class="modal-header">
@@ -719,7 +926,8 @@
             <h3>Cuide da sua companheira</h3>
             <p>
               Use as moedas para melhorar sua foice na oficina. São
-              <b>10 foices</b>, cada vez mais rápidas e com maior área de corte.
+              <b>24 foices em caixas e fusões</b>, cada vez mais rápidas e com
+              maior área de corte.
             </p>
           </div>
         </div>

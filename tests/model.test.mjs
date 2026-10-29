@@ -14,17 +14,19 @@ import {
 const NOW = 10000;
 const fresh = () => new Garden({ now: NOW, random: () => 0.5 });
 
-test("as 10 foices evoluem em velocidade, área e custo", () => {
-  assert.equal(SCYTHES.length, 10);
-  assert.deepEqual(
-    SCYTHES.map((t) => t.area),
-    [5, 9, 13, 21, 25, 29, 37, 49, 61, 81],
-  );
-  for (let i = 1; i < SCYTHES.length; i++) {
-    assert.ok(SCYTHES[i].cooldown < SCYTHES[i - 1].cooldown);
-    assert.ok(SCYTHES[i].area > SCYTHES[i - 1].area);
-    assert.ok(SCYTHES[i].cost > SCYTHES[i - 1].cost);
-  }
+test("as 24 foices têm 6 raridades e 4 graus, com grau 1 superior", () => {
+  assert.equal(SCYTHES.length, 24);
+  for (let r = 0; r < 6; r++)
+    for (let g = 0; g < 4; g++) {
+      const t = SCYTHES[r * 4 + g];
+      assert.equal(t.grade, 4 - g);
+      assert.equal(t.rarity, r);
+      if (g) {
+        assert.ok(t.damage > SCYTHES[r * 4 + g - 1].damage);
+        assert.ok(t.cooldown < SCYTHES[r * 4 + g - 1].cooldown);
+        assert.ok(t.area >= SCYTHES[r * 4 + g - 1].area);
+      }
+    }
 });
 
 test("as probabilidades de grama preservam os limites e as recompensas", () => {
@@ -86,7 +88,8 @@ test("o mapa é finito e todas as áreas caminháveis são alcançáveis", () =>
   }
   assert.equal(
     seen.size,
-    garden.tiles.filter((t) => ["path", "grass"].includes(t.kind)).length,
+    garden.tiles.filter((t) => ["path", "grass", "soil"].includes(t.kind))
+      .length,
   );
 });
 
@@ -161,29 +164,25 @@ test("obstáculos bloqueiam o alcance da foice", () => {
   assert.equal(hidden.cutAt, null);
 });
 
-test("as melhorias descontam o custo, seguem a ordem e param no nível máximo", () => {
-  const garden = fresh();
-  assert.equal(garden.upgrade(), false);
-  garden.coins = 59;
-  assert.equal(garden.upgrade(), false);
-  assert.equal(garden.coins, 59);
-  garden.coins = 60;
-  assert.equal(garden.upgrade(), true);
-  assert.equal(garden.level, 1);
-  assert.equal(garden.coins, 0);
-  const sum = SCYTHES.slice(2).reduce((total, t) => total + t.cost, 0);
-  garden.coins = sum;
-  for (let i = 2; i < 10; i++) assert.equal(garden.upgrade(), true);
-  assert.equal(garden.coins, 0);
-  assert.equal(garden.level, 9);
-  assert.equal(garden.nextTool, null);
-  assert.equal(garden.upgrade(), false);
+test("caixas descontam diamantes e não gastam ouro", () => {
+  const g = fresh();
+  g.coins = 999;
+  g.diamonds = 49;
+  assert.equal(g.openCrates(1).ok, false);
+  assert.equal(g.diamonds, 49);
+  g.diamonds = 50;
+  assert.equal(g.openCrates(1).ok, true);
+  assert.equal(g.diamonds, 0);
+  assert.equal(g.coins, 999);
+  assert.equal(g.scythes[4], 1);
+  assert.equal(g.level, 4);
 });
 
 test("o save restaura equipamento, moedas, posição, grama e crescimento offline", () => {
   const garden = fresh();
   garden.coins = 120;
-  garden.upgrade();
+  garden.diamonds = 50;
+  garden.openCrates(1);
   garden.cut(NOW);
   garden.move(0.4, 0, 0.05);
   const saved = garden.serialize();
@@ -232,7 +231,7 @@ test("MONEY ativa testes sem converter o saldo em Infinity ou gastar moedas reai
   assert.equal(garden.redeemCode("  money  ").ok, true);
   assert.equal(garden.infiniteMoney, true);
   assert.equal(garden.redeemCode("MONEY").ok, true);
-  for (let i = 1; i < SCYTHES.length; i++) assert.equal(garden.upgrade(), true);
+  assert.equal(garden.openCrates(11).ok, true);
   for (let i = 1; i < FARMS.length; i++)
     assert.equal(garden.upgradeFarm(), true);
   assert.equal(garden.coins, 17);
@@ -299,30 +298,34 @@ test("os bônus acumulam frações sem perder moedas ao arredondar cada tufo", (
   assert.ok(garden.bonusCarry < 1e-8);
 });
 
-test("rebirth exige a foice lendária e mantém fazenda, histórico e bônus permanentes", () => {
-  const garden = fresh();
-  garden.coins = 400;
-  garden.farmLevel = 4;
-  garden.cutCount = 120;
-  garden.totalEarned = 900;
-  assert.equal(garden.rebirth(NOW), false);
-  assert.equal(garden.coins, 400);
-  garden.level = 9;
-  assert.equal(garden.canRebirth, true);
-  assert.equal(garden.rebirth(NOW), true);
-  assert.equal(garden.level, 0);
-  assert.equal(garden.coins, 0);
-  assert.equal(garden.rebirths, 1);
-  assert.equal(garden.farmLevel, 4);
-  assert.equal(garden.cutCount, 120);
-  assert.equal(garden.totalEarned, 900);
-  assert.equal(garden.multiplier, 1.5 * 1.25);
-  assert.equal(garden.canRebirth, false);
-  assert.equal(garden.rebirth(NOW), false);
-  garden.level = 9;
-  garden.rebirth(NOW + 100);
-  assert.equal(garden.rebirths, 2);
-  assert.equal(garden.multiplier, 1.5 * 1.5);
+test("rebirth preserva coleções, parceiros, XP e fazenda e exige os novos requisitos", () => {
+  const g = fresh();
+  g.coins = 400;
+  g.farmLevel = 4;
+  g.cutCount = 120;
+  g.totalEarned = 900;
+  assert.equal(g.rebirth(NOW), false);
+  assert.equal(g.coins, 400);
+  g.scythes[15] = 1;
+  g.level = 15;
+  g.gainXP(1260);
+  g.coins = g.rebirthCost;
+  g.petLevels.dog = 2;
+  g.diamonds = 75;
+  assert.ok(g.experience.level >= 10);
+  assert.equal(g.canRebirth, true);
+  assert.equal(g.rebirth(NOW), true);
+  assert.equal(g.level, 0);
+  assert.equal(g.coins, 0);
+  assert.equal(g.rebirths, 1);
+  assert.equal(g.farmLevel, 4);
+  assert.equal(g.cutCount, 120);
+  assert.equal(g.totalEarned, 900);
+  assert.equal(g.petLevels.dog, 2);
+  assert.equal(g.diamonds, 75);
+  assert.equal(g.scythes[15], 1);
+  assert.equal(g.multiplier, 1.5 * 1.25);
+  assert.equal(g.canRebirth, false);
 });
 
 test("fazenda, rebirth, frações de bônus e modo MONEY sobrevivem ao save", () => {

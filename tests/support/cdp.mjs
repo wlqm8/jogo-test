@@ -34,6 +34,7 @@ export async function connectPage(endpoint) {
       socket.send(JSON.stringify({ id: next, method, params }));
     });
   await send("Runtime.enable");
+  await send("Page.enable");
   return {
     send,
     errors,
@@ -53,7 +54,12 @@ export async function connectPage(endpoint) {
         type,
         code,
         key: code === "Space" ? " " : code.slice(-1).toLowerCase(),
-        windowsVirtualKeyCode: code === "Space" ? 32 : code.charCodeAt(3),
+        windowsVirtualKeyCode:
+          code === "Space"
+            ? 32
+            : code.startsWith("Digit")
+              ? code.charCodeAt(5)
+              : code.charCodeAt(3),
       });
     },
   };

@@ -2,10 +2,12 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const assets = new Map([
+  ["/src/loot.js", ["src/loot.js", "text/javascript; charset=utf-8"]],
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/src/app.js", ["src/app.js", "text/javascript; charset=utf-8"]],
   ["/src/model.js", ["src/model.js", "text/javascript; charset=utf-8"]],
+  ["/src/farming.js", ["src/farming.js", "text/javascript; charset=utf-8"]],
   ["/src/game.js", ["src/game.js", "text/javascript; charset=utf-8"]],
   ["/src/style.css", ["src/style.css", "text/css; charset=utf-8"]],
   ["/favicon.svg", ["favicon.svg", "image/svg+xml"]],
@@ -41,7 +43,7 @@ export async function serveGameAsset(root, request) {
         "Content-Type": asset.contentType,
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy":
-          "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+          "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
       },
     });
   } catch {

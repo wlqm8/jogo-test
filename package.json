@@ -1,10 +1,10 @@
 {
   "name": "capim-e-cia",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "main": "desktop/main.mjs",
-  "description": "Um pequeno jardim 2D para cortar, colher e evoluir.",
+  "description": "Fazenda 2D com plantio, dia e noite, ajudantes, habilidades e caixas de foices.",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
@@ -14,7 +14,7 @@
     "build:windows": "node scripts/package-windows.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:desktop": "npm run build && node tests/desktop-smoke.mjs",
-    "check": "node --check src/model.js && node --check src/game.js && node --check src/app.js && node --check desktop/main.mjs && node --check desktop/preload.cjs && node --check scripts/package-windows.mjs"
+    "check": "node --check src/model.js && node --check src/farming.js && node --check src/loot.js && node --check src/game.js && node --check src/app.js && node --check desktop/main.mjs && node --check desktop/preload.cjs && node --check scripts/package-windows.mjs"
   },
   "engines": {
     "node": ">=22.12"

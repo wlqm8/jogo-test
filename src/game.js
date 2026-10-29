@@ -1,9 +1,10 @@
 import { COLS, ROWS, TILE, GRASS, hash } from "./model.js";
+import { CROPS, HOME, WELL, DAY_DURATION } from "./farming.js";
 
 const OX = 48,
   OY = 48,
-  WIDTH = 896,
-  HEIGHT = 640;
+  WIDTH = COLS * TILE + 96,
+  HEIGHT = ROWS * TILE + 96;
 const TAU = Math.PI * 2;
 const reducedMotion = globalThis.matchMedia?.(
   "(prefers-reduced-motion: reduce)",
@@ -70,6 +71,38 @@ export function drawScythe(canvas, tool, large = false) {
   if (tool.level >= 6) {
     rect(ctx, "#f9f5ca", -1, -20, 2, 2);
   }
+  if (tool.rarity >= 2) {
+    rect(ctx, tool.accent, -4, -6, 7, 7);
+    rect(ctx, tool.color, -2, -5, 3, 4);
+  }
+  if (tool.rarity === 3)
+    for (let i = 0; i < 3; i++) {
+      rect(ctx, tool.color, 20 + i * 5, -17 + i * 3, 4, 5);
+    }
+  if (tool.rarity >= 4) {
+    ctx.fillStyle = tool.color;
+    ctx.beginPath();
+    ctx.moveTo(-1, -23);
+    ctx.lineTo(-18, -18);
+    ctx.lineTo(-24, -6);
+    ctx.lineTo(-18, -12);
+    ctx.lineTo(-9, -15);
+    ctx.lineTo(0, -16);
+    ctx.fill();
+    rect(ctx, tool.accent, -17, -16, 7, 2);
+  }
+  if (tool.rarity === 5) {
+    rect(ctx, tool.accent, -4, 15, 9, 3);
+    rect(ctx, tool.color, -6, 12, 3, 9);
+    rect(ctx, tool.color, 4, 12, 3, 9);
+  }
+  for (let i = 0; i < 4 - tool.grade; i++) {
+    rect(ctx, tool.accent, -3, 18 - i * 4, 6, 2);
+  }
+  if (tool.grade === 1) {
+    rect(ctx, "#fff4c1", -19, 9, 2, 8);
+    rect(ctx, "#fff4c1", -22, 12, 8, 2);
+  }
   ctx.restore();
 }
 
@@ -77,13 +110,16 @@ export class GameView {
   constructor(
     canvas,
     model,
-    { onHarvest = () => {}, onPause = () => {} } = {},
+    { onHarvest = () => {}, onPause = () => {}, onStep = () => {} } = {},
   ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", { alpha: false });
     this.model = model;
     this.onHarvest = onHarvest;
     this.onPause = onPause;
+    this.onStep = onStep;
+    this.lastHUD = 0;
+    this.grassCache = new Map();
     this.keys = new Set();
     this.stick = { x: 0, y: 0 };
     this.cutting = false;
@@ -95,6 +131,7 @@ export class GameView {
     this.time = 0;
     this.frame = 0;
     this.lastFrame = null;
+    this.lastDraw = 0;
     this.base = document.createElement("canvas");
     this.base.width = WIDTH;
     this.base.height = HEIGHT;
@@ -221,7 +258,7 @@ export class GameView {
     const dt =
       this.lastFrame === null
         ? 0
-        : Math.min((stamp - this.lastFrame) / 1000, 0.05);
+        : Math.min((stamp - this.lastFrame) / 1000, 0.25);
     this.lastFrame = stamp;
     this.time = stamp / 1000;
     const now = Date.now() / 1000;
@@ -235,8 +272,9 @@ export class GameView {
         Number(this.keys.has("ArrowUp") || this.keys.has("KeyW")) +
         this.stick.y;
       this.model.move(dx, dy, dt);
+      this.model.advance(dt);
       if (this.keys.has("Space") || this.cutting || this.autoCut) {
-        const result = this.model.cut(now);
+        const result = this.model.act(now);
         if (result) {
           this.swingAt = this.time;
           this.emitHarvest(result);
@@ -244,8 +282,16 @@ export class GameView {
         }
       }
     } else this.model.player.walking = false;
+    if (stamp - this.lastHUD > 200) {
+      this.lastHUD = stamp;
+      this.onStep();
+    }
     this.effects = this.effects.filter((p) => this.time - p.born < p.life);
-    this.render(now);
+    const drawInterval = this.paused || this.covered ? 120 : 16;
+    if (stamp - this.lastDraw >= drawInterval) {
+      this.render(now);
+      this.lastDraw = stamp;
+    }
     this.frameId = requestAnimationFrame(this.tick);
   }
 
@@ -317,9 +363,9 @@ export class GameView {
     this.drawShed(ctx);
     // Garden props and flowers around the border.
     this.drawTree(ctx, 42, 87, 1.15);
-    this.drawTree(ctx, 853, 85, 1.05);
-    this.drawTree(ctx, 25, 526, 0.87);
-    this.drawTree(ctx, 868, 542, 0.88);
+    this.drawTree(ctx, WIDTH - 43, 85, 1.05);
+    this.drawTree(ctx, 25, HEIGHT - 90, 0.87);
+    this.drawTree(ctx, WIDTH - 28, HEIGHT - 85, 0.88);
     if (this.model.farmLevel > 0) {
       for (let i = 0; i < 2 + this.model.farmLevel; i++) {
         const x = 135 + i * 121;
@@ -591,6 +637,31 @@ export class GameView {
   }
 
   drawGrass(ctx, tile, now) {
+    const growth = this.model.growth(tile, now);
+    const stage =
+      growth < 0.03
+        ? 0
+        : growth < 0.3
+          ? 1
+          : growth < 0.65
+            ? 2
+            : growth < 1
+              ? 3
+              : 4;
+    const key = `${tile.variant}:${stage}:${Math.floor(hash(tile.x, tile.y, 5) * 4)}`;
+    let sprite = this.grassCache.get(key);
+    if (!sprite) {
+      sprite = document.createElement("canvas");
+      sprite.width = 40;
+      sprite.height = 40;
+      const c = sprite.getContext("2d");
+      c.translate(4 - OX - tile.x * TILE, 8 - OY - tile.y * TILE);
+      this.paintGrass(c, tile, now);
+      this.grassCache.set(key, sprite);
+    }
+    ctx.drawImage(sprite, OX + tile.x * TILE - 4, OY + tile.y * TILE - 8);
+  }
+  paintGrass(ctx, tile, now) {
     const growth = this.model.growth(tile, now),
       x = OX + tile.x * TILE,
       y = OY + tile.y * TILE;
@@ -740,26 +811,53 @@ export class GameView {
     const swing = Math.max(0, 1 - (this.time - this.swingAt) / 0.27);
     ctx.save();
     ctx.translate(10, -12);
-    ctx.rotate(-0.38 - swing * 2.8);
-    rect(ctx, "#7b6244", 0, -19, 3, 30);
-    rect(ctx, "#c7a76b", 0, -18, 1, 27);
-    rect(ctx, "#586c5b", 0, -22, 13, 4);
-    rect(ctx, this.model.tool.color, 1, -23, 11, 3);
-    rect(ctx, this.model.tool.color, 10, -21, 5, 3);
-    rect(ctx, "#e2e1c0", 3, -23, 6, 1);
-    rect(ctx, "#60715d", 13, -18, 3, 6);
+    if (this.model.selectedAction === "water") {
+      rect(ctx, "#74979b", -1, -8, 13, 13);
+      rect(ctx, "#a4c6c3", 0, -10, 11, 12);
+      rect(ctx, "#629aaf", 2, -9, 7, 3);
+      ctx.strokeStyle = "#749492";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(5, -8, 7, Math.PI, 0);
+      ctx.stroke();
+      if (swing > 0.1)
+        for (let i = 0; i < 3; i++)
+          rect(ctx, "#a9dcde", 12 + i * 5, -3 + i * 4, 2, 4);
+    } else {
+      ctx.rotate(-0.38 - swing * 2.8);
+      rect(ctx, "#7b6244", 0, -19, 3, 30);
+      rect(ctx, "#c7a76b", 0, -18, 1, 27);
+      if (
+        this.model.selectedAction === "plant" ||
+        this.model.selectedAction === "repair"
+      ) {
+        rect(ctx, "#7c8b83", -2, -22, 16, 5);
+        rect(ctx, "#b4bfa9", 0, -23, 14, 3);
+        rect(ctx, "#8e9f93", 10, -21, 5, 10);
+      } else {
+        rect(ctx, "#586c5b", 0, -22, 13, 4);
+        rect(ctx, this.model.tool.color, 1, -23, 11, 3);
+        rect(ctx, this.model.tool.color, 10, -21, 5, 3);
+        rect(ctx, this.model.tool.accent, 3, -23, 6, 1);
+        rect(ctx, "#60715d", 13, -18, 3, 6);
+      }
+    }
     ctx.restore();
     ctx.restore();
-    if (swing > 0 && !reducedMotion) {
+    if (
+      swing > 0 &&
+      !reducedMotion &&
+      this.model.selectedAction === "harvest"
+    ) {
       ctx.save();
       ctx.globalAlpha = swing * 0.5;
-      ctx.strokeStyle = "#f7f7cf";
-      ctx.lineWidth = 5;
+      ctx.strokeStyle = this.model.tool.accent;
+      ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(
         x,
         y - 5,
-        Math.min(110, this.model.tool.radius * TILE),
+        Math.min(140, this.model.tool.radius * TILE),
         -0.5 + 2 * swing,
         2.6 + 2 * swing,
       );
@@ -804,80 +902,327 @@ export class GameView {
     ctx.globalAlpha = 1;
   }
 
+  drawWell(ctx) {
+    const x = OX + WELL.x * TILE,
+      y = OY + WELL.y * TILE;
+    ellipse(ctx, "#496e3c30", x, y + 12, 20, 8);
+    rect(ctx, "#9caa92", x - 15, y - 1, 30, 18);
+    rect(ctx, "#c6c7a4", x - 17, y - 5, 34, 14);
+    ellipse(ctx, "#e1d7b0", x, y - 5, 17, 8);
+    ellipse(ctx, "#638e92", x, y - 5, 12, 5);
+    rect(ctx, "#a6c7c0", x - 7, y - 6, 9, 2);
+    for (const dx of [-15, 12]) {
+      rect(ctx, "#92734c", x + dx, y - 34, 4, 34);
+      rect(ctx, "#c1a36b", x + dx, y - 34, 1, 30);
+    }
+    rect(ctx, "#9b7f58", x - 21, y - 38, 43, 6);
+    rect(ctx, "#c28e6e", x - 17, y - 44, 35, 8);
+    rect(ctx, "#d4aa80", x - 12, y - 48, 25, 5);
+    rect(ctx, "#c4b48d", x, y - 33, 1, 18);
+    rect(ctx, "#a3b4b2", x - 4, y - 16, 9, 8);
+    ctx.font = "bold 6px monospace";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#f8f5df";
+    ctx.fillText("POÇO · R", x, y - 53);
+    ctx.fillStyle = "#7e9562";
+    ctx.fillRect(OX + HOME.x * TILE - 15, OY + HOME.y * TILE + 3, 30, 11);
+    ctx.fillStyle = "#f2eed7";
+    ctx.fillText("CASA", OX + HOME.x * TILE, OY + HOME.y * TILE + 11);
+  }
+
+  drawSoil(ctx, tile) {
+    const x = OX + tile.x * TILE,
+      y = OY + tile.y * TILE;
+    rect(
+      ctx,
+      tile.damaged ? "#8d7966" : tile.crop?.watered ? "#9b7e59" : "#b59c70",
+      x + 1,
+      y + 1,
+      30,
+      30,
+    );
+    for (let i = 0; i < 4; i++)
+      rect(
+        ctx,
+        tile.damaged ? "#6c6555" : tile.crop?.watered ? "#80684c" : "#9c835b",
+        x + 3,
+        y + 5 + i * 7,
+        26,
+        2,
+      );
+    if (tile.damaged) {
+      rect(ctx, "#615a51", x + 5, y + 5, 4, 6);
+      rect(ctx, "#615a51", x + 8, y + 10, 11, 3);
+      rect(ctx, "#615a51", x + 17, y + 12, 3, 11);
+      rect(ctx, "#ba8269", x + 24, y + 3, 3, 21);
+      rect(ctx, "#e3b18b", x + 21, y + 3, 9, 7);
+      ctx.font = "bold 6px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f6e5c1";
+      ctx.fillText("!", x + 25, y + 9);
+      ctx.fillStyle = "#efd5ab";
+      ctx.fillText(this.model.repairPrice(tile) + "g", x + 13, y + 29);
+      return;
+    }
+    const crop = tile.crop;
+    if (!crop) return;
+    const g = this.model.cropGrowth(tile),
+      h = 4 + Math.floor(g * 16),
+      mature = g >= 1;
+    const type = crop.type;
+    for (let i = 0; i < 3; i++) {
+      const bx = x + 7 + i * 8,
+        by = y + 24 + (i % 2) * 3;
+      rect(ctx, "#65864c", bx, by - h, 2, h);
+      rect(ctx, "#8daa5e", bx - 3, by - h + 3, 4, 3);
+      rect(ctx, "#a3bc6d", bx + 1, by - h + 1, 4, 3);
+      if (g > 0.3) {
+        rect(ctx, "#6b984f", bx - 5, by - h + 7, 5, 3);
+        rect(ctx, "#95b55e", bx + 2, by - h + 6, 5, 3);
+      }
+      if (g < 0.65) continue;
+      if (type === "grain" || type === "corn") {
+        rect(
+          ctx,
+          CROPS[type].color,
+          bx - 2,
+          by - h - 4,
+          6,
+          type === "corn" ? 12 : 9,
+        );
+        rect(ctx, "#f1d785", bx - 1, by - h - 3, 2, 6);
+      } else if (type === "carrot") {
+        rect(ctx, "#c97c40", bx - 3, by - 5, 6, 7);
+        rect(ctx, "#e5a15a", bx - 2, by - 6, 4, 5);
+        rect(ctx, "#b56839", bx - 1, by + 1, 2, 3);
+      } else if (type === "potato") {
+        ellipse(ctx, "#c0a47a", bx, by - 1, 4, 3);
+        rect(ctx, "#ddc19a", bx - 2, by - 3, 3, 2);
+      } else if (type === "tomato") {
+        ellipse(ctx, "#bd6851", bx + 3, by - h + 7, 4, 4);
+        rect(ctx, "#e59372", bx + 2, by - h + 5, 2, 2);
+      } else if (type === "pumpkin") {
+        ellipse(ctx, "#ca8b4b", bx, by - 2, 6, 5);
+        rect(ctx, "#e7ae61", bx - 3, by - 5, 2, 6);
+        rect(ctx, "#8b8b4c", bx, by - 9, 2, 4);
+      } else if (type === "lettuce") {
+        ellipse(ctx, "#709e55", bx, by - 5, 6, 6);
+        rect(ctx, "#b2cd83", bx - 3, by - 9, 5, 6);
+        rect(ctx, "#8eb566", bx, by - 7, 4, 7);
+      } else {
+        rect(ctx, "#83ad5a", bx - 4, by - h, 3, h);
+        rect(ctx, "#a6c372", bx + 3, by - h - 2, 2, h + 2);
+      }
+    }
+    if (crop.quality !== "normal") {
+      const color = crop.quality === "legendary" ? "#d2a6ed" : "#f3dc8b";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 2, y + 2, 28, 28);
+      rect(ctx, color, x + 2, y + 3, 2, 6);
+      rect(ctx, color, x, y + 5, 6, 2);
+    }
+    if (!crop.watered) {
+      rect(ctx, "#d8ece7", x + 24, y + 2, 4, 6);
+      rect(ctx, "#7caeb1", x + 24, y + 4, 4, 5);
+    } else if (mature) {
+      rect(ctx, "#fbebad", x + 26, y + 2, 2, 6);
+      rect(ctx, "#fbebad", x + 24, y + 4, 6, 2);
+    } else {
+      rect(ctx, "#665d44", x + 6, y + 29, 20, 2);
+      rect(ctx, "#aac47a", x + 6, y + 29, Math.round(g * 20), 2);
+    }
+  }
+
+  drawAnimal(ctx, agent, type) {
+    const x = Math.round(OX + agent.x * TILE),
+      y = Math.round(OY + agent.y * TILE);
+    const walk =
+      agent.path?.length && !reducedMotion
+        ? Math.round(Math.sin(this.time * 12) * 2)
+        : 0;
+    ctx.save();
+    ctx.translate(x, y);
+    ellipse(ctx, "#3c5f413d", 0, 4, 13, 4);
+    if (type === "robot") {
+      rect(ctx, "#5f7878", -9, 0, 5, 6);
+      rect(ctx, "#5f7878", 5, 0, 5, 6);
+      rect(ctx, "#a1bbb6", -10, -17, 20, 19);
+      rect(ctx, "#d4dfc8", -8, -20, 16, 18);
+      rect(ctx, "#6f9090", -7, -15, 14, 7);
+      rect(ctx, "#b2e1ce", -5, -13, 3, 2);
+      rect(ctx, "#b2e1ce", 3, -13, 3, 2);
+      rect(ctx, "#94b39c", -2, -6, 5, 7);
+      rect(ctx, "#6d9ca0", -1, -4, 3, 4);
+      rect(ctx, "#718d7a", 0, -25, 2, 6);
+      rect(ctx, "#b8d7a0", -1, -28, 4, 4);
+      rect(ctx, "#749ca0", 9, -6, 7, 3);
+      rect(ctx, "#aed7d1", 14, -4, 2, 5);
+    } else {
+      const wolf = type === "wolf",
+        dark = wolf ? "#6c777c" : "#9e7753",
+        light = wolf ? "#a6afa7" : "#d1ad77";
+      rect(ctx, dark, -11, -8, 22, 11);
+      rect(ctx, light, -10, -12, 20, 11);
+      rect(ctx, dark, -9, 0, 4, 5 + walk);
+      rect(ctx, dark, 5, 0, 4, 5 - walk);
+      rect(ctx, light, 7, -18, 12, 13);
+      rect(ctx, dark, 8, -22, 4, 8);
+      rect(ctx, dark, 15, -21, 4, 7);
+      rect(ctx, wolf ? "#cbd0bf" : "#e5c994", 10, -11, 12, 5);
+      rect(ctx, "#4d5d54", 19, -12, 4, 3);
+      rect(ctx, wolf ? "#efd39b" : "#4a5546", 15, -16, 2, 2);
+      rect(ctx, dark, -17, -13 + walk, 8, 4);
+      rect(ctx, light, -18, -16 + walk, 4, 5);
+      if (!wolf) {
+        rect(ctx, "#749a7f", 9, -7, 8, 3);
+        if (this.model.cargoCount) {
+          rect(ctx, "#8c7555", -6, -18, 12, 8);
+          rect(ctx, "#c9b184", -5, -20, 10, 7);
+          rect(ctx, "#94ad6d", -3, -23, 4, 4);
+        }
+      } else {
+        rect(ctx, "#402d39", -9, -29, 23, 3);
+        rect(
+          ctx,
+          "#c38476",
+          -9,
+          -29,
+          (agent.hp /
+            Math.min(50, 3 + Math.floor((this.model.day - 1) / 2) * 2)) *
+            23,
+          3,
+        );
+      }
+    }
+    ctx.restore();
+  }
+
+  drawNight(ctx) {
+    const t = this.model.cycleTime;
+    let darkness = this.model.isNight
+      ? 0.58
+      : t > 220
+        ? ((t - 220) / 20) * 0.35
+        : 0;
+    if (t > 290) darkness *= (300 - t) / 10;
+    if (!darkness) return;
+    rect(ctx, `rgba(24,35,61,${darkness})`, 0, 0, WIDTH, HEIGHT);
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const lights = [
+      [
+        this.model.player.x,
+        this.model.player.y - 0.5,
+        100 + this.model.skills.vigilance * 20,
+      ],
+      [WELL.x, WELL.y, 60],
+      [HOME.x, HOME.y - 1, 75],
+    ];
+    for (const [tx, ty, radius] of lights) {
+      const x = OX + tx * TILE,
+        y = OY + ty * TILE;
+      const light = ctx.createRadialGradient(x, y, 3, x, y, radius);
+      light.addColorStop(0, "#edcf954d");
+      light.addColorStop(1, "#d5bc7400");
+      ctx.fillStyle = light;
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
+    ctx.restore();
+  }
+
+  drawMinimap() {
+    const canvas = document.querySelector("#minimap");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d"),
+      sx = canvas.width / COLS,
+      sy = canvas.height / ROWS;
+    for (const tile of this.model.tiles) {
+      const c = tile.damaged
+        ? "#c38a78"
+        : tile.crop
+          ? "#d6c476"
+          : tile.kind === "soil"
+            ? "#c2a97b"
+            : tile.kind === "pond"
+              ? "#86b4af"
+              : ["grass", "path"].includes(tile.kind)
+                ? "#adc98b"
+                : "#7e9e69";
+      rect(ctx, c, tile.x * sx, tile.y * sy, sx + 1, sy + 1);
+    }
+    for (const [point, color] of [
+      [HOME, "#f7f4d4"],
+      [WELL, "#77b8ca"],
+      [this.model.player, "#fff1a0"],
+      ...this.model.wolves.map((w) => [w, "#c97879"]),
+    ])
+      rect(ctx, color, point.x * sx - 2, point.y * sy - 2, 4, 4);
+  }
+
   render(now) {
-    const ctx = this.ctx;
-    const mobile =
-      matchMedia("(pointer: coarse)").matches && this.canvas.clientWidth < 760;
-    const desktop = document.documentElement.classList.contains("desktop-app");
-    if (mobile || desktop) {
-      // Follow the player without stretching pixels in a resizable PC window.
-      const viewWidth = desktop
-        ? WIDTH
-        : Math.min(WIDTH, Math.max(480, this.canvas.clientWidth));
-      const scale = Math.max(
-        this.canvas.width / viewWidth,
-        this.canvas.height / HEIGHT,
-      );
-      const visibleWidth = this.canvas.width / scale,
-        visibleHeight = this.canvas.height / scale;
-      const cameraX = Math.max(
-        0,
-        Math.min(
-          WIDTH - visibleWidth,
-          OX + this.model.player.x * TILE - visibleWidth / 2,
-        ),
-      );
-      const cameraY = Math.max(
-        0,
-        Math.min(
-          HEIGHT - visibleHeight,
-          OY + this.model.player.y * TILE - visibleHeight / 2,
-        ),
-      );
-      ctx.setTransform(scale, 0, 0, scale, -cameraX * scale, -cameraY * scale);
-    } else
-      ctx.setTransform(
-        this.canvas.width / WIDTH,
-        0,
-        0,
-        this.canvas.height / HEIGHT,
-        0,
-        0,
-      );
+    const ctx = this.ctx,
+      mobile =
+        matchMedia("(pointer: coarse)").matches &&
+        this.canvas.clientWidth < 760;
+    const viewWidth = mobile ? 480 : 896;
+    const scale = Math.max(
+      this.canvas.width / viewWidth,
+      this.canvas.height / HEIGHT,
+    );
+    const visibleWidth = this.canvas.width / scale,
+      visibleHeight = this.canvas.height / scale;
+    const cameraX = Math.max(
+      0,
+      Math.min(
+        WIDTH - visibleWidth,
+        OX + this.model.player.x * TILE - visibleWidth / 2,
+      ),
+    );
+    const cameraY = Math.max(
+      0,
+      Math.min(
+        HEIGHT - visibleHeight,
+        OY + this.model.player.y * TILE - visibleHeight / 2,
+      ),
+    );
+    ctx.setTransform(scale, 0, 0, scale, -cameraX * scale, -cameraY * scale);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(this.base, 0, 0);
-    const playerRow = Math.floor(this.model.player.y);
-    for (let y = 1; y < ROWS - 1; y++) {
-      for (let x = 1; x < COLS - 1; x++) {
+    const minX = Math.max(1, Math.floor((cameraX - OX - 35) / TILE)),
+      maxX = Math.min(
+        COLS - 2,
+        Math.ceil((cameraX + visibleWidth - OX + 35) / TILE),
+      );
+    const minY = Math.max(1, Math.floor((cameraY - OY - 50) / TILE)),
+      maxY = Math.min(
+        ROWS - 2,
+        Math.ceil((cameraY + visibleHeight - OY + 50) / TILE),
+      );
+    const actors = [
+      { entity: this.model.player, type: "player" },
+      ...this.model.wolves.map((entity) => ({ entity, type: "wolf" })),
+    ];
+    for (const type of ["dog", "robot"])
+      if (this.model.petLevels[type])
+        actors.push({ entity: this.model.helpers[type], type });
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
         const tile = this.model.tileAt(x, y);
         if (tile.kind === "grass") this.drawGrass(ctx, tile, now);
+        else if (tile.kind === "soil") this.drawSoil(ctx, tile);
         else if (tile.kind === "bush" || tile.kind === "stone")
           this.drawBush(ctx, tile);
       }
-      if (y === playerRow) this.drawPlayer(ctx);
+      if (y === Math.floor(WELL.y)) this.drawWell(ctx);
+      for (const actor of actors)
+        if (Math.floor(actor.entity.y) === y) {
+          if (actor.type === "player") this.drawPlayer(ctx);
+          else this.drawAnimal(ctx, actor.entity, actor.type);
+        }
     }
-    // Water ripples and warm sunlight stay subtle so gameplay remains readable.
-    if (!reducedMotion) {
-      const t = this.time;
-      ctx.globalAlpha = 0.32;
-      rect(
-        ctx,
-        "#e0ecd0",
-        OX + 19 * TILE + 46 + Math.sin(t * 0.6) * 4,
-        OY + 2 * TILE + 53,
-        18,
-        1,
-      );
-      ctx.globalAlpha = 1;
-      for (let i = 0; i < 3; i++) {
-        const x = 135 + i * 231 + Math.sin(t * 0.35 + i) * 35,
-          y = 155 + Math.cos(t * 0.5 + i * 2) * 58;
-        const flap = Math.sin(t * 10 + i) > 0 ? 3 : 1;
-        rect(ctx, i % 2 ? "#f3e3a4" : "#f5efda", x - flap, y, flap, 2);
-        rect(ctx, i % 2 ? "#ead08b" : "#e8dfbc", x + 1, y, flap, 2);
-        rect(ctx, "#a59d60", x, y, 1, 3);
-      }
-    }
+    this.drawNight(ctx);
     this.drawEffects(ctx);
+    if (this.frame++ % 12 === 0) this.drawMinimap();
   }
 }
