@@ -71,12 +71,14 @@ test("colheita imatura não rende; madura é coletada uma única vez", () => {
   g.waterTile(t);
   g.selectedAction = "harvest";
   assert.equal(g.act(NOW).earned, 0);
-  g.advance(20);
-  assert.equal(g.act(NOW + 2).earned, 5);
+  g.advance(29);
+  assert.equal(g.act(NOW + 2).earned, 0);
+  g.advance(1);
+  assert.equal(g.act(NOW + 4).earned, 5);
   assert.equal(g.cropHarvested, 1);
   assert.equal(g.orderHarvest.grass, 1);
   assert.equal(t.crop, null);
-  assert.equal(g.act(NOW + 4).earned, 0);
+  assert.equal(g.act(NOW + 6).earned, 0);
 });
 test("sementes exigem nível e ouro, sem gastar quando faltam requisitos", () => {
   const g = fresh();
@@ -215,7 +217,7 @@ test("Bento não planta: colhe, transporta e paga apenas ao chegar em casa", () 
   g.buyCompanion("dog");
   const t = plant(g, 5, 3);
   t.crop.watered = true;
-  t.crop.progress = 20;
+  t.crop.progress = CROPS.grass.seconds;
   t.crop.quality = "golden";
   g.helpers.dog.x = 5.5;
   g.helpers.dog.y = 3.5;
@@ -318,7 +320,7 @@ test("colheita dourada rende 10 diamantes e lendária rende 500", () => {
       t = plant(g);
     t.crop.quality = quality;
     t.crop.watered = true;
-    t.crop.progress = 20;
+    t.crop.progress = CROPS.grass.seconds;
     stand(g, t);
     noWildRewards(g);
     g.act(NOW);

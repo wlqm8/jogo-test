@@ -1,3 +1,5 @@
+import { BUILDINGS, QUESTS, questProgress } from "./progression.js";
+
 export const WORLD_COLS = 41;
 export const WORLD_ROWS = 29;
 export const DAY_DURATION = 240;
@@ -8,7 +10,7 @@ export const CROPS = {
     name: "Capim",
     plural: "tufos de capim",
     icon: "☘",
-    seconds: 20,
+    seconds: 30,
     value: 5,
     packCost: 10,
     unlock: 1,
@@ -217,6 +219,11 @@ export class FarmLife {
     this.robotWater = 0;
     this.diamonds = 0;
     this.qualityLevel = 0;
+    this.buildings = Object.fromEntries(
+      Object.keys(BUILDINGS).map((k) => [k, 0]),
+    );
+    this.claimedQuests = [];
+    this.protectedNights = 0;
     this.dogDiamonds = 0;
     this.dogGold = 0;
     this.dogCargo = Object.fromEntries(Object.keys(CROPS).map((k) => [k, 0]));
@@ -310,10 +317,48 @@ export class FarmLife {
     return this.petLevels.dog * 4 + this.skills.dog * 2;
   }
   get waterCapacity() {
-    return 24 + this.skills.watering * 4;
+    return 24 + this.skills.watering * 4 + this.buildings.cistern * 12;
   }
   get robotCapacity() {
-    return 12 + this.petLevels.robot * 6;
+    return 12 + this.petLevels.robot * 6 + this.buildings.cistern * 6;
+  }
+  get cropSpeed() {
+    return 1 + this.buildings.compost * 0.1;
+  }
+  get wolfAttackDuration() {
+    return 2 + this.buildings.fence * 1.25;
+  }
+  upgradeBuilding(key) {
+    if (!Object.hasOwn(BUILDINGS, key)) return false;
+    const building = BUILDINGS[key],
+      level = this.buildings[key];
+    if (
+      level >= 3 ||
+      this.experience.level < building.level ||
+      !this.pay(building.costs[level])
+    )
+      return false;
+    this.buildings[key]++;
+    return true;
+  }
+  canClaimQuest(id) {
+    const quest = QUESTS.find((q) => q.id === id);
+    return Boolean(
+      quest &&
+        !this.claimedQuests.includes(id) &&
+        (!quest.requires || this.claimedQuests.includes(quest.requires)) &&
+        questProgress(this, quest) >= quest.target,
+    );
+  }
+  claimQuest(id) {
+    if (!this.canClaimQuest(id)) return false;
+    const quest = QUESTS.find((q) => q.id === id);
+    this.claimedQuests.push(id);
+    this.coins += quest.gold;
+    this.totalEarned += quest.gold;
+    this.diamonds += quest.diamonds;
+    this.gainXP(quest.xp);
+    return true;
   }
   get goldenChance() {
     return 0.05 + this.qualityLevel * 0.01;
@@ -694,7 +739,7 @@ export class FarmLife {
         if (tile.crop?.watered)
           tile.crop.progress = Math.min(
             CROPS[tile.crop.type].seconds,
-            tile.crop.progress + step,
+            tile.crop.progress + step * this.cropSpeed,
           );
       if (!wasNight && this.isNight) {
         this.nightLoss = 0;
@@ -719,6 +764,7 @@ export class FarmLife {
           this.nightHadCrops && this.nightLoss === 0
             ? this.addReward(30 + this.day * 5)
             : 0;
+        if (this.nightHadCrops && this.nightLoss === 0) this.protectedNights++;
         this.orderHarvest = Object.fromEntries(
           Object.keys(CROPS).map((k) => [k, 0]),
         );
@@ -777,7 +823,7 @@ export class FarmLife {
       const destination = { x: target.x + 0.5, y: target.y + 0.5 };
       if (best < 0.72) {
         wolf.attack += dt;
-        if (wolf.attack >= 2) {
+        if (wolf.attack >= this.wolfAttackDuration) {
           this.damagePlot(target);
           wolf.attack = 0;
           wolf.plan = 0;
@@ -929,6 +975,9 @@ export class FarmLife {
       robotWater: this.robotWater,
       diamonds: this.diamonds,
       qualityLevel: this.qualityLevel,
+      buildings: this.buildings,
+      claimedQuests: this.claimedQuests,
+      protectedNights: this.protectedNights,
       dogDiamonds: this.dogDiamonds,
       dogGold: this.dogGold,
       orderType: this.orderType,
@@ -976,6 +1025,28 @@ export class FarmLife {
     )
       return false;
     const count = (n) => Number.isSafeInteger(n) && n >= 0 && n < 1e12;
+    if (
+      !data.buildings ||
+      Object.keys(data.buildings).length !== Object.keys(BUILDINGS).length ||
+      !Object.keys(BUILDINGS).every(
+        (k) =>
+          Number.isInteger(data.buildings[k]) &&
+          data.buildings[k] >= 0 &&
+          data.buildings[k] <= 3,
+      ) ||
+      !Array.isArray(data.claimedQuests) ||
+      new Set(data.claimedQuests).size !== data.claimedQuests.length ||
+      !data.claimedQuests.every((id) =>
+        QUESTS.some(
+          (q) =>
+            q.id === id &&
+            (!q.requires || data.claimedQuests.includes(q.requires)),
+        ),
+      ) ||
+      !count(data.protectedNights) ||
+      data.protectedNights > data.nightsSurvived
+    )
+      return false;
     for (const key of [
       "planted",
       "watered",
@@ -1018,9 +1089,9 @@ export class FarmLife {
       return false;
     if (
       !count(data.water) ||
-      data.water > 40 ||
+      data.water > 76 ||
       !count(data.robotWater) ||
-      data.robotWater > 30
+      data.robotWater > 48
     )
       return false;
     if (
@@ -1060,6 +1131,12 @@ export class FarmLife {
     }
     if (Object.values(data.skills).reduce((a, b) => a + b, 0) > level - 1)
       return false;
+    if (
+      Object.entries(BUILDINGS).some(
+        ([key, b]) => data.buildings[key] && level < b.level,
+      )
+    )
+      return false;
     for (const [key, skill] of Object.entries(SKILLS))
       if (
         data.skills[key] &&
@@ -1069,9 +1146,12 @@ export class FarmLife {
       )
         return false;
     if (
-      data.water > 24 + data.skills.watering * 4 ||
+      data.water >
+        24 + data.skills.watering * 4 + data.buildings.cistern * 12 ||
       data.robotWater >
-        (data.petLevels.robot ? 12 + data.petLevels.robot * 6 : 0)
+        (data.petLevels.robot
+          ? 12 + data.petLevels.robot * 6 + data.buildings.cistern * 6
+          : 0)
     )
       return false;
     const cargo = Object.values(data.dogCargo).reduce((a, b) => a + b, 0);
@@ -1119,7 +1199,7 @@ export class FarmLife {
         ids.has(w.id) ||
         !Number.isFinite(w.attack) ||
         w.attack < 0 ||
-        w.attack > 2 ||
+        w.attack > 2 + data.buildings.fence * 1.25 ||
         !Number.isFinite(w.flee) ||
         w.flee < 0 ||
         w.flee > 3
@@ -1197,6 +1277,9 @@ export class FarmLife {
     this.robotWater = data.robotWater;
     this.diamonds = data.diamonds;
     this.qualityLevel = data.qualityLevel;
+    this.buildings = { ...data.buildings };
+    this.claimedQuests = [...data.claimedQuests];
+    this.protectedNights = data.protectedNights;
     this.dogDiamonds = data.dogDiamonds;
     this.dogGold = data.dogGold;
     this.orderType = data.orderType;

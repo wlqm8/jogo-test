@@ -37,6 +37,12 @@ async function openGame() {
       const url = new URL(match[1]);
       try {
         const page = await connectPage(`http://${url.host}`);
+        await page.send("Emulation.setDeviceMetricsOverride", {
+          width: 1440,
+          height: 960,
+          deviceScaleFactor: 1,
+          mobile: false,
+        });
         await delay(500);
         return page;
       } catch {
@@ -69,6 +75,23 @@ async function tap(code, hold = 80) {
   await page.key(code);
   await delay(hold);
   await page.key(code, "keyUp");
+}
+async function click(selector) {
+  const point = await page.evaluate(
+    `(()=>{const node=document.querySelector(${JSON.stringify(selector)});node.scrollIntoView({block:'center',behavior:'instant'});const r=node.getBoundingClientRect();const point={x:r.x+r.width/2,y:r.y+r.height/2};if(!node.contains(document.elementFromPoint(point.x,point.y)))throw new Error('Controle fora de alcance: '+${JSON.stringify(selector)});return point})()`,
+  );
+  await page.send("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    button: "left",
+    clickCount: 1,
+    ...point,
+  });
+  await page.send("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    button: "left",
+    clickCount: 1,
+    ...point,
+  });
 }
 async function closeModal(id) {
   await page.evaluate(`document.querySelector('#${id}').close()`);
@@ -114,6 +137,8 @@ try {
     null,
   );
   for (const [width, height] of [
+    [960, 640],
+    [1024, 768],
     [1366, 768],
     [1440, 960],
     [1920, 1080],
@@ -141,25 +166,50 @@ try {
     deviceScaleFactor: 1,
     mobile: false,
   });
-  await page.evaluate("document.querySelector('#garden').focus()");
-  await tap("Digit2");
+  assert.ok(
+    await page.evaluate(
+      "document.querySelector('#context-tip').textContent.includes('Passo 1/3')",
+    ),
+  );
+  await screenshot("primeiros-passos.png");
+  await click("#tip-action");
+  assert.equal(await page.evaluate("document.activeElement.id"), "garden");
   await tap("Space");
   await delay(300);
   assert.equal((await state()).life.planted, 2);
   assert.equal((await state()).life.seeds.grass, 22);
+  await click("[data-equip=plant]");
+  assert.equal(await page.evaluate("document.activeElement.id"), "garden");
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-action=plant]').getAttribute('aria-pressed')",
+    ),
+    "true",
+  );
+  assert.ok(
+    await page.evaluate(
+      "document.querySelector('#context-tip').textContent.includes('Passo 2/3')",
+    ),
+  );
   await delay(700);
-  await tap("Digit3");
+  await click("[data-equip=water]");
+  assert.equal(await page.evaluate("document.activeElement.id"), "garden");
   await tap("Space");
   await delay(300);
   assert.equal((await state()).life.watered, 2);
   assert.equal((await state()).life.water, 10);
+  assert.ok(
+    await page.evaluate(
+      "document.querySelector('#context-tip').textContent.includes('pronta em')",
+    ),
+  );
   await tap("KeyW", 800);
   await tap("KeyA", 450);
   await tap("KeyR");
   await delay(150);
   assert.equal((await state()).life.water, 24);
   console.log(
-    "PASS: inventário, teclado, plantio, rega e reabastecimento no poço.",
+    "PASS: janela mínima 960×640, guia inicial, clique nas ferramentas seguido de Espaço, plantio, rega e poço.",
   );
   const initial = await state();
   initial.life.xp = 40;
@@ -231,7 +281,7 @@ try {
     "PASS: habilidades, sementes, pesquisa, compra/upgrades de parceiros, chances visíveis, caixas e fusões.",
   );
   await fixture(
-    `g.coins=12;g.worldTime=245;g.lastWolfSpawn=245;const a=g.tileAt(11,9);g.plantTile(a);a.crop.watered=true;a.crop.progress=20;a.crop.quality='golden';const b=g.tileAt(13,9);g.plantTile(b);g.damagePlot(b);g.spawnWolf();g.wolves[0].x=16.5;g.wolves[0].y=9.5;`,
+    `g.coins=12;g.worldTime=245;g.lastWolfSpawn=245;const a=g.tileAt(11,9);g.plantTile(a);a.crop.watered=true;a.crop.progress=30;a.crop.quality='golden';const b=g.tileAt(13,9);g.plantTile(b);g.damagePlot(b);g.spawnWolf();g.wolves[0].x=16.5;g.wolves[0].y=9.5;`,
   );
   assert.ok(
     await page.evaluate(
@@ -264,7 +314,7 @@ try {
     "PASS: noite, reparo pago em ouro, colheita dourada com 10 diamantes e pausa.",
   );
   await fixture(
-    `g.coins=350;g.buyCompanion('dog');const t=g.tileAt(5,3);g.plantTile(t);t.crop.watered=true;t.crop.progress=20;t.crop.quality='golden';g.helpers.dog.x=5.5;g.helpers.dog.y=3.5;`,
+    `g.coins=350;g.buyCompanion('dog');const t=g.tileAt(5,3);g.plantTile(t);t.crop.watered=true;t.crop.progress=30;t.crop.quality='golden';g.helpers.dog.x=5.5;g.helpers.dog.y=3.5;`,
   );
   await delay(2800);
   const delivered = await state();
@@ -287,6 +337,78 @@ try {
   console.log(
     "PASS: Bento entrega em casa e o estado completo permanece após fechar/reabrir.",
   );
+  await fixture(
+    `g.xp=195;g.coins=4000;g.planted=10;g.watered=20;g.cropHarvested=30;g.cutCount=100;g.wolvesScared=5;`,
+  );
+  await click("#quests-button");
+  assert.equal(
+    await page.evaluate("document.querySelectorAll('.quest-card').length"),
+    14,
+  );
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-claim-quest=watering]').disabled",
+    ),
+    true,
+  );
+  for (const id of ["sowing", "watering", "harvest", "gardener"])
+    await page.evaluate(
+      `document.querySelector('[data-claim-quest=${id}]').click()`,
+    );
+  assert.deepEqual((await state()).life.claimedQuests, [
+    "sowing",
+    "watering",
+    "harvest",
+    "gardener",
+  ]);
+  assert.equal((await state()).life.diamonds, 45);
+  assert.equal(
+    await page.evaluate(
+      "document.querySelector('[data-claim-quest=sowing]').disabled",
+    ),
+    true,
+  );
+  await screenshot("missoes.png");
+  await closeModal("life-dialog");
+  await click("#farm-nav");
+  for (const key of ["cistern", "fence", "compost", "cistern"])
+    await page.evaluate(
+      `document.querySelector('[data-build=${key}]').click()`,
+    );
+  assert.deepEqual((await state()).life.buildings, {
+    cistern: 2,
+    fence: 1,
+    compost: 1,
+  });
+  await screenshot("construcoes.png");
+  await closeModal("farm-dialog");
+  await closeGame(page);
+  page = null;
+  page = await openGame();
+  assert.deepEqual((await state()).life.buildings, {
+    cistern: 2,
+    fence: 1,
+    compost: 1,
+  });
+  assert.equal((await state()).life.claimedQuests.length, 4);
+  console.log(
+    "PASS: mural com 14 missões, recompensas sem duplicação, três construções funcionais e persistência ao reabrir.",
+  );
+  const legacyV2 = await readFile(
+    join(root, "tests/fixtures/legacy-v2.json"),
+    "utf8",
+  );
+  await loadSave(legacyV2);
+  assert.equal((await state()).coins, 4321);
+  assert.equal((await state()).life.diamonds, 77);
+  assert.equal((await state()).boxesOpened, 11);
+  assert.equal(
+    await page.evaluate("localStorage.getItem('capim-e-cia:v1:before-v2-1')"),
+    legacyV2,
+  );
+  console.log(
+    "PASS: atualização do save 2.0 com backup completo e conservação de ouro, diamantes e coleção.",
+  );
   const legacy = await readFile(
     join(root, "tests/fixtures/legacy-v1.json"),
     "utf8",
@@ -294,7 +416,7 @@ try {
   await loadSave(legacy);
   assert.equal((await state()).coins, 4321);
   assert.equal((await state()).rebirths, 3);
-  assert.equal((await state()).version, 3);
+  assert.equal((await state()).version, 4);
   assert.equal(
     await page.evaluate("localStorage.getItem('capim-e-cia:v1:before-v2')"),
     legacy,

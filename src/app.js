@@ -9,6 +9,7 @@ import {
   QUALITY_COSTS,
 } from "./farming.js";
 import { RARITIES, BOX_PRICE } from "./loot.js";
+import { BUILDINGS, QUESTS, questProgress } from "./progression.js";
 
 const desktopMode = Boolean(window.capimDesktop);
 document.documentElement.classList.toggle("desktop-app", desktopMode);
@@ -22,7 +23,8 @@ let toastTimer,
   soundEnabled = false,
   audio;
 let lastSave = "",
-  emptyHintAt = 0;
+  emptyHintAt = 0,
+  fieldTipAction = null;
 const workshop = $("#workshop-dialog"),
   help = $("#help-dialog"),
   codes = $("#codes-dialog"),
@@ -60,9 +62,15 @@ try {
     } catch {
       version = null;
     }
-    if (version !== 3 && !localStorage.getItem(SAVE_KEY + ":before-v2")) {
+    const backupKey =
+      version === 3
+        ? ":before-v2-1"
+        : [1, 2].includes(version)
+          ? ":before-v2"
+          : null;
+    if (backupKey && !localStorage.getItem(SAVE_KEY + backupKey)) {
       try {
-        localStorage.setItem(SAVE_KEY + ":before-v2", saved);
+        localStorage.setItem(SAVE_KEY + backupKey, saved);
       } catch {
         /* A full storage must not prevent playing. */
       }
@@ -140,9 +148,9 @@ const view = new GameView($("#garden"), model, {
     if (result.earned) {
       updateUI();
       save();
-      playTone("coin", Math.max(...result.harvested.map((t) => t.value)));
+      playTone("coin", Math.max(1, ...result.harvested.map((t) => t.value)));
       $("#game-announcement").textContent =
-        `${result.harvested.length} gramas cortadas. Mais ${result.earned} moedas.`;
+        `${result.harvested.length} colheitas, ${result.scared || 0} lobos espantados. Mais ${result.earned} moedas.`;
       if (
         model.cutCount === result.harvested.length &&
         model.cropHarvested === 0
@@ -156,16 +164,9 @@ const view = new GameView($("#garden"), model, {
       playTone("cut");
     } else {
       playTone("cut");
-      if (
-        !view.autoCut &&
-        model.selectedAction === "harvest" &&
-        model.cutCount === 0 &&
-        Date.now() - emptyHintAt > 12000
-      ) {
+      if (!view.autoCut && Date.now() - emptyHintAt > 12000) {
         emptyHintAt = Date.now();
-        toast(
-          "Aproxime-se da grama alta e segure Espaço para colher suas primeiras moedas.",
-        );
+        toast(fieldGuidance().message);
       }
     }
   },
@@ -275,6 +276,149 @@ function renderWorkshop() {
     };
 }
 
+function fieldGuidance() {
+  const cx = Math.floor(model.player.x),
+    cy = Math.floor(model.player.y);
+  const tiles = model.tool.offsets
+    .map(([dx, dy]) => model.tileAt(cx + dx, cy + dy))
+    .filter((t) => t && model.hasLineOfSight(t.x, t.y));
+  const crops = tiles.filter((t) => t.crop);
+  const dry = crops.filter((t) => !t.crop.watered);
+  const mature = crops.filter((t) => model.cropGrowth(t) >= 1);
+  const damaged = tiles.filter((t) => t.damaged);
+  const hint = (message, action = null, label = "") => ({
+    message,
+    action,
+    label,
+  });
+  const crop = CROPS[model.selectedCrop];
+
+  if (model.selectedAction === "repair") {
+    if (!damaged.length)
+      return hint(
+        "Nenhum canteiro destruído ao alcance. Use Plantar (2) para semear com a enxada.",
+        "plant",
+        "Plantar",
+      );
+    const prices = damaged.map((t) => model.repairPrice(t));
+    if (!model.canAfford(Math.min(...prices)))
+      return hint(
+        `Falta ouro para reparar. O canteiro mais barato ao alcance custa ${Math.min(...prices)} ouro.`,
+      );
+    return hint(
+      `${damaged.length} canteiro(s) ao alcance: ${prices.reduce((a, b) => a + b, 0)} ouro no total. Segure Espaço para reparar.`,
+    );
+  }
+  if (model.selectedAction === "water") {
+    if (!model.water)
+      return hint(
+        "Balde vazio. Aproxime-se do poço azul no mapa e pressione R para pegar água.",
+        Math.hypot(model.player.x - WELL.x, model.player.y - WELL.y) <= 2.2
+          ? "refill"
+          : null,
+        "Pegar água",
+      );
+    if (dry.length)
+      return hint(
+        `${model.watered === 0 ? "Passo 2/3 · " : ""}${dry.length} muda(s) precisam de água. Segure Espaço para regar; o crescimento começa depois da rega.`,
+      );
+    if (mature.length)
+      return hint(
+        "Estas plantas já estão prontas! Selecione a foice para colher.",
+        "harvest",
+        "Colher",
+      );
+    if (!crops.length)
+      return hint(
+        "Aproxime-se de uma muda sem água. Para criar uma muda, escolha Plantar (2).",
+        model.planted === 0 ? "plant" : null,
+        "Plantar",
+      );
+  }
+  if (model.selectedAction === "plant") {
+    if (!model.seeds[model.selectedCrop])
+      return hint(
+        `Sem sementes de ${crop.name.toLowerCase()}. Escolha outra semente ou compre mais no Mercado.`,
+        "market",
+        "Mercado",
+      );
+    if (model.watered === 0 && dry.length)
+      return hint(
+        "Passo 2/3 · Suas primeiras mudas precisam de água. Selecione o balde e segure Espaço.",
+        "water",
+        "Regar",
+      );
+    if (
+      !tiles.some(
+        (t) => ["grass", "soil"].includes(t.kind) && !t.crop && !t.damaged,
+      )
+    )
+      return damaged.length
+        ? hint(
+            "O terreno ao alcance está destruído. Repare com a enxada antes de plantar.",
+            "repair",
+            "Reparar",
+          )
+        : hint(
+            "Nenhum espaço livre ao alcance. Caminhe até o capim ou um canteiro vazio para plantar.",
+          );
+    return hint(
+      `${model.planted === 0 ? "Passo 1/3 · " : ""}${crop.name}: ${model.seeds[model.selectedCrop]} sementes. Segure Espaço para plantar e depois regue.`,
+    );
+  }
+  if (model.selectedAction === "harvest") {
+    if (
+      model.wolves.some(
+        (w) =>
+          Math.hypot(w.x - model.player.x, w.y - model.player.y) <=
+            model.tool.radius + 0.8 &&
+          model.hasLineOfSight(Math.floor(w.x), Math.floor(w.y)),
+      )
+    )
+      return hint(
+        "Lobo ao alcance! Segure Espaço para defender sua plantação com a foice.",
+      );
+    if (mature.length)
+      return hint(
+        `${model.cropHarvested === 0 ? "Passo 3/3 · " : ""}${mature.length} planta(s) maduras ao alcance. Segure Espaço para colher!`,
+      );
+    if (!model.planted && !model.cutCount)
+      return hint(
+        "Passo 1/3 · Você ganhou 24 sementes de capim! Escolha Plantar e segure Espaço no campo.",
+        "plant",
+        "Plantar",
+      );
+    if (dry.length)
+      return hint(
+        "Estas mudas ainda precisam de água para crescer. Selecione o balde e regue.",
+        "water",
+        "Regar",
+      );
+  }
+  const growing = crops
+    .filter((t) => t.crop.watered && model.cropGrowth(t) < 1)
+    .sort(
+      (a, b) =>
+        CROPS[a.crop.type].seconds -
+        a.crop.progress -
+        (CROPS[b.crop.type].seconds - b.crop.progress),
+    )[0];
+  if (growing) {
+    const remaining = Math.ceil(
+      (CROPS[growing.crop.type].seconds - growing.crop.progress) /
+        model.cropSpeed,
+    );
+    return hint(
+      `${model.cropHarvested === 0 ? "Passo 3/3 · " : ""}${CROPS[growing.crop.type].name}: pronta em ${remaining} s. Use a foice quando amadurecer.`,
+    );
+  }
+  return hint(
+    model.selectedAction === "water"
+      ? "As plantas ao alcance já estão regadas. Procure mudas com a gotinha azul."
+      : "Foice: segure Espaço para colher plantas maduras, cortar o mato e espantar lobos.",
+  );
+}
+
 function updateHUD() {
   for (const id of ["balance", "world-coins", "farm-wallet", "life-balance"])
     put(id, balanceLabel());
@@ -355,12 +499,13 @@ function updateHUD() {
     b.classList.toggle("selected", active);
     b.setAttribute("aria-pressed", String(active));
   }
-  for (const b of document.querySelectorAll("[data-equip]"))
-    b.classList.toggle(
-      "selected",
+  for (const b of document.querySelectorAll("[data-equip]")) {
+    const active =
       b.dataset.equip === model.selectedAction ||
-        (b.dataset.equip === "repair" && model.selectedAction === "plant"),
-    );
+      (b.dataset.equip === "plant" && model.selectedAction === "repair");
+    b.classList.toggle("selected", active);
+    b.setAttribute("aria-pressed", String(active));
+  }
   put(
     "equipped-name",
     model.selectedAction === "harvest"
@@ -374,30 +519,11 @@ function updateHUD() {
     "touch-action-label",
     actionNames[model.selectedAction].split(" / ")[0].toUpperCase(),
   );
-  const tips = {
-    harvest: "Foice: colha plantas maduras, corte o mato e espante os lobos.",
-    plant: `${CROPS[model.selectedCrop].name}: ${model.seeds[model.selectedCrop]} sementes. Plante e depois regue.`,
-    water: model.water
-      ? "Use o balde nas mudas secas. Pressione R perto do poço para reabastecer."
-      : "Seu balde está vazio. Vá ao poço (azul no mapa) e pressione R.",
-    repair: `Use a enxada nos canteiros destruídos. Reparos custam moedas; depois replante.`,
-  };
-  if (model.selectedAction === "repair") {
-    const cx = Math.floor(model.player.x),
-      cy = Math.floor(model.player.y);
-    const near = model.tool.offsets
-      .map(([dx, dy]) => model.tileAt(cx + dx, cy + dy))
-      .filter((t) => t?.damaged && model.hasLineOfSight(t.x, t.y));
-    tips.repair = near.length
-      ? `${near.length} canteiro(s) ao alcance: ${near.reduce((n, t) => n + model.repairPrice(t), 0)} ouro no total. Use a enxada e depois replante.`
-      : "Aproxime-se dos canteiros destruídos. O custo em ouro aparece em cada um.";
-  }
-  put(
-    "context-tip",
-    model.planted === 0 && model.cutCount === 0
-      ? "Você ganhou 24 sementes de capim! Selecione Plantar (2) e segure Espaço."
-      : tips[model.selectedAction],
-  );
+  const guidance = fieldGuidance();
+  put("context-tip", guidance.message);
+  fieldTipAction = guidance.action;
+  $("#tip-action").hidden = !guidance.action;
+  put("tip-action", guidance.label);
   put(
     "helpers-summary",
     `${model.petLevels.dog ? `Bento nv.${model.petLevels.dog}${model.cargoCount ? ` · carga ${model.cargoCount}/${model.dogCapacity}` : ""}` : "Bento: não adquirido"} · ${model.petLevels.robot ? `Gota nv.${model.petLevels.robot}` : "Gota: não adquirido"}`,
@@ -411,6 +537,16 @@ function updateHUD() {
   $("#claim-order").disabled =
     model.orderClaimed || model.orderHarvest[order.type] < order.count;
   put("claim-order", model.orderClaimed ? "Pedido concluído" : "Receber bônus");
+  const availableQuests = QUESTS.filter((q) =>
+    model.canClaimQuest(q.id),
+  ).length;
+  put(
+    "quest-badge",
+    availableQuests
+      ? `${availableQuests} prontas`
+      : `${model.claimedQuests.length}/${QUESTS.length}`,
+  );
+  $("#quests-button").classList.toggle("has-rewards", availableQuests > 0);
   const events = model.events.splice(0);
   if (events.length) {
     const event = events.findLast((e) => e.type === "level") || events.at(-1);
@@ -502,6 +638,44 @@ function renderLife() {
         updateUI();
         playTone("upgrade");
       }
+    };
+  renderQuests();
+}
+
+function renderQuests() {
+  put("quest-completion", `${model.claimedQuests.length} / ${QUESTS.length}`);
+  $("#quest-board").innerHTML = [
+    "Cultivo",
+    "Descobertas",
+    "Fazenda",
+    "Proteção",
+  ]
+    .map(
+      (branch) =>
+        `<section class="quest-branch"><h4>${branch}</h4>${QUESTS.filter(
+          (q) => q.branch === branch,
+        )
+          .map((q) => {
+            const claimed = model.claimedQuests.includes(q.id);
+            const prerequisite =
+              q.requires && QUESTS.find((p) => p.id === q.requires);
+            const locked =
+              prerequisite && !model.claimedQuests.includes(prerequisite.id);
+            const progress = questProgress(model, q);
+            const ready = model.canClaimQuest(q.id);
+            return `<article class="quest-card ${claimed ? "claimed" : ready ? "ready" : locked ? "locked" : ""}"><div class="quest-card-heading"><strong>${q.title}</strong><span>${claimed ? "✓" : ready ? "✦" : "◇"}</span></div><p>${q.text}</p><div class="quest-progress"><span style="width:${(progress / q.target) * 100}%"></span></div><div class="quest-progress-caption"><span>${number(progress)} / ${number(q.target)}</span><small>${claimed ? "Concluída" : locked ? "Aguardando missão anterior" : "Em andamento"}</small></div><div class="quest-rewards"><span><i class="pixel-coin mini"></i> ${number(q.gold)}</span><span class="diamond-symbol">◇ ${q.diamonds}</span><span>+${q.xp} XP</span></div><button data-claim-quest="${q.id}" ${!ready ? "disabled" : ""}>${claimed ? "Recompensa recebida" : locked ? `Antes: ${prerequisite.title}` : ready ? "Receber recompensa" : "Continue no campo"}</button></article>`;
+          })
+          .join("")}</section>`,
+    )
+    .join("");
+  for (const button of document.querySelectorAll("[data-claim-quest]"))
+    button.onclick = () => {
+      if (!model.claimQuest(button.dataset.claimQuest)) return;
+      save();
+      updateUI();
+      renderLife();
+      playTone("upgrade");
+      toast("Missão concluída! Ouro, diamantes e experiência recebidos.");
     };
 }
 
@@ -613,6 +787,32 @@ function renderFarm() {
     `${icon(model.canRebirth ? "rebirth" : "lock")}Fazer rebirth`;
   $("#rebirth-button").hidden = false;
   $("#rebirth-confirm").hidden = true;
+  $("#building-grid").innerHTML = Object.entries(BUILDINGS)
+    .map(([key, b]) => {
+      const level = model.buildings[key],
+        max = level === 3;
+      const locked = model.experience.level < b.level;
+      const current =
+        key === "cistern"
+          ? `Balde: ${model.waterCapacity} águas · Robô: ${model.petLevels.robot ? model.robotCapacity : "compre Gota"}`
+          : key === "fence"
+            ? `${probability(model.wolfAttackDuration)} s para o lobo destruir uma planta`
+            : `Culturas crescem ${Math.round((model.cropSpeed - 1) * 100)}% mais rápido`;
+      return `<article class="building-card ${locked ? "locked" : ""}"><div class="building-card-top"><span>${b.icon}</span><b>${level ? `NÍVEL ${level}/3` : "NÃO CONSTRUÍDA"}</b></div><h4>${b.name}</h4><p>${b.description}</p><strong class="building-effect">${b.effect}</strong><div class="building-current">${current}</div><button data-build="${key}" ${max || locked || !model.canAfford(b.costs[level]) ? "disabled" : ""}>${max ? "Nível máximo" : locked ? `Desbloqueia no nível ${b.level}` : `${level ? "Melhorar" : "Construir"} · ${number(b.costs[level])} ouro`}</button></article>`;
+    })
+    .join("");
+  for (const button of document.querySelectorAll("[data-build]"))
+    button.onclick = () => {
+      const key = button.dataset.build;
+      if (!model.upgradeBuilding(key)) return;
+      view.buildTerrain();
+      save();
+      updateUI();
+      playTone("upgrade");
+      toast(
+        `${BUILDINGS[key].name} no nível ${model.buildings[key]}! A melhoria fica após o rebirth.`,
+      );
+    };
 }
 $("#farm-upgrade-button").addEventListener("click", () => {
   if (!model.upgradeFarm()) return;
@@ -735,30 +935,33 @@ window.capimDesktop?.onAction((action) => {
     if (target) openModal(target);
   }
 });
+function selectAction(action) {
+  model.selectedAction = action;
+  view.clearInput();
+  updateHUD();
+  $("#garden").focus({ preventScroll: true });
+}
 for (const b of document.querySelectorAll("[data-action]"))
-  b.onclick = () => {
-    model.selectedAction = b.dataset.action;
-    view.clearInput();
-    updateHUD();
-  };
+  b.onclick = () => selectAction(b.dataset.action);
 for (const b of document.querySelectorAll("[data-equip]"))
-  b.onclick = () => {
-    model.selectedAction = b.dataset.equip;
-    view.clearInput();
-    updateHUD();
-  };
+  b.onclick = () => selectAction(b.dataset.equip);
 $("#seed-select").onchange = (e) => {
   model.selectedCrop = e.target.value;
-  model.selectedAction = "plant";
-  updateHUD();
+  selectAction("plant");
 };
 const openLife = (tab) => {
   activeLifeTab = tab;
   openModal(lifeDialog);
 };
 $("#market-button").onclick = () => openLife("seeds");
+$("#tip-action").onclick = () => {
+  if (fieldTipAction === "market") openLife("seeds");
+  else if (fieldTipAction === "refill") $("#refill-button").click();
+  else if (ACTIONS.includes(fieldTipAction)) selectAction(fieldTipAction);
+};
 $("#life-button").onclick = () => openLife("helpers");
 $("#skills-button").onclick = () => openLife("skills");
+$("#quests-button").onclick = () => openLife("quests");
 for (const b of document.querySelectorAll("[data-life-tab]"))
   b.onclick = () => {
     activeLifeTab = b.dataset.lifeTab;
@@ -770,6 +973,7 @@ $("#refill-button").onclick = () => {
     save();
     toast("Balde cheio! Água coletada no poço.");
   } else toast("Aproxime-se do poço, marcado em azul no mapa, e pressione R.");
+  $("#garden").focus({ preventScroll: true });
 };
 $("#claim-order").onclick = () => {
   if (model.claimOrder()) {
@@ -794,10 +998,7 @@ document.addEventListener("keydown", (e) => {
   };
   if (modes[e.code]) {
     e.preventDefault();
-    model.selectedAction = modes[e.code];
-    view.clearInput();
-    $("#garden").focus({ preventScroll: true });
-    updateHUD();
+    selectAction(modes[e.code]);
   }
   if (e.code === "KeyR") {
     e.preventDefault();
@@ -847,6 +1048,14 @@ help.querySelector(".help-steps").innerHTML = [
   [
     "Sua própria evolução",
     "Cada novo nível concede 1 ponto para a árvore de habilidades. Invista em corrida, colheita, rega, produção, ajudantes e proteção. Experiência, habilidades, coleções e parceiros ficam após o rebirth.",
+  ],
+  [
+    "Missões e desafios",
+    "Abra o mural junto do pedido diário. São 14 metas de cultivo, descobertas, fazenda e proteção, com ouro, diamantes e XP. Resgate cada missão uma vez para liberar a próxima. Noites protegidas precisam começar com plantas e terminar sem perdas.",
+  ],
+  [
+    "Construções úteis",
+    "A cisterna aumenta a água do balde e do robô; a cerca reforçada dá mais tempo antes que os lobos destruam canteiros; a composteira acelera o crescimento. Cada construção tem 3 níveis, pagos em ouro, e permanece no rebirth.",
   ],
   [
     "Um novo começo",

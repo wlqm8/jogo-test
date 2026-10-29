@@ -476,6 +476,28 @@ export class GameView {
     }
     if (hash(x, y, 21) > 0.58)
       this.drawFlower(ctx, px + 7 + hash(x, y) * 16, py + 31, "#f1edc7", 0.6);
+    const reinforcement = this.model.buildings.fence;
+    if (reinforcement) {
+      const metal = ["#a9b2a1", "#889c98", "#c5b57d"][reinforcement - 1];
+      rect(
+        ctx,
+        metal,
+        px + (horizontal ? 5 : 9),
+        py + 9,
+        horizontal ? 5 : 18,
+        4,
+      );
+      rect(ctx, "#e4e6cd", px + (horizontal ? 6 : 11), py + 10, 2, 2);
+      if (reinforcement > 1)
+        rect(
+          ctx,
+          metal,
+          px + (horizontal ? 18 : 9),
+          py + 19,
+          horizontal ? 5 : 18,
+          4,
+        );
+    }
   }
 
   drawPond(ctx) {
@@ -554,7 +576,16 @@ export class GameView {
       rect(ctx, "#788d63", x + 8 + i * 21, y - 6, 1, 12);
     rect(ctx, "#b9c095", x + 40, y + 60, 42, 5);
     this.drawPot(ctx, x + 6, y + 58, "#d9a08c");
-    this.drawPot(ctx, x + 117, y + 58, "#e7cc80");
+    if (this.model.buildings.compost) {
+      const level = this.model.buildings.compost;
+      rect(ctx, "#78633e", x + 103, y + 40, 25, 20);
+      rect(ctx, "#ad9361", x + 101, y + 40, 28, 5);
+      rect(ctx, "#5c7041", x + 105, y + 37, 19, 5);
+      for (let i = 0; i < level; i++)
+        rect(ctx, "#e0cc87", x + 107 + i * 6, y + 51, 3, 3);
+      rect(ctx, "#99b76b", x + 110, y + 33, 4, 7);
+      rect(ctx, "#bad38c", x + 114, y + 31, 5, 4);
+    } else this.drawPot(ctx, x + 117, y + 58, "#e7cc80");
     if (this.model.farmLevel > 0) {
       rect(ctx, "#9c7b5b", x + 12, y + 43, 25, 7);
       rect(ctx, "#c5a67a", x + 11, y + 42, 27, 3);
@@ -920,6 +951,15 @@ export class GameView {
     rect(ctx, "#d4aa80", x - 12, y - 48, 25, 5);
     rect(ctx, "#c4b48d", x, y - 33, 1, 18);
     rect(ctx, "#a3b4b2", x - 4, y - 16, 9, 8);
+    if (this.model.buildings.cistern) {
+      rect(ctx, "#536f72", x + 15, y - 15, 14, 28);
+      rect(ctx, "#9cbcb5", x + 16, y - 14, 11, 24);
+      rect(ctx, "#6f999c", x + 17, y - 7, 9, 16);
+      rect(ctx, "#c7d9c5", x + 14, y - 17, 16, 4);
+      for (let i = 0; i < this.model.buildings.cistern; i++)
+        rect(ctx, "#dce8c6", x + 19, y + 4 - i * 5, 5, 2);
+      rect(ctx, "#a3b4a4", x + 27, y + 3, 5, 3);
+    }
     ctx.font = "bold 6px monospace";
     ctx.textAlign = "center";
     ctx.fillStyle = "#f8f5df";

@@ -15,7 +15,7 @@ const [html, css, favicon, ...modules] = await Promise.all([
   readFile(resolve(root, "index.html"), "utf8"),
   readFile(resolve(root, "src/style.css"), "utf8"),
   readFile(resolve(root, "favicon.svg"), "utf8"),
-  ...["farming", "loot", "model", "game", "app"].map((name) =>
+  ...["progression", "farming", "loot", "model", "game", "app"].map((name) =>
     readFile(resolve(root, `src/${name}.js`), "utf8"),
   ),
 ]);

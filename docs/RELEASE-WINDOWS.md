@@ -1,6 +1,6 @@
-**Capim & Cia 2.0 — Dias de Colheita**
+**Capim & Cia 2.1 — Uma fazenda com planos**
 
-Uma fazenda maior, com plantio, água, defesa noturna e novos caminhos de evolução.
+Novas missões, construções funcionais e um começo mais fácil no computador.
 
 Escolha a edição:
 
@@ -19,6 +19,18 @@ Use **WASD ou as setas** para andar. Escolha a ferramenta com **1, 2, 3 ou 4** e
 
 Novidades:
 
+- **14 missões permanentes**, com caminhos de cultivo, descobertas, fazenda e proteção. Acompanhe o progresso, cumpra o pré-requisito e resgate ouro, diamantes e XP uma vez por missão.
+- **Cisterna:** 3 níveis, com +12 águas no balde e +6 no reservatório do robô por nível. Desbloqueia no nível 2.
+- **Cerca reforçada:** 3 níveis, acrescentando 1,25 s ao tempo de ataque dos lobos por nível. Desbloqueia no nível 3.
+- **Composteira:** 3 níveis, com +10% de velocidade de crescimento por nível. Desbloqueia no nível 4.
+- Construções e missões permanecem após fechar o jogo e fazer rebirth. A cisterna e a composteira aparecem junto ao poço e à casa; a cerca ganha reforços visuais.
+- **Guia plantar → regar → colher**, com botões para trocar de ferramenta e dicas de sementes, água, reparos e tempo até a colheita.
+- A enxada do inventário seleciona plantio. Depois de clicar numa ferramenta, segurar Espaço funciona imediatamente no campo.
+- O capim plantado passa a usar **30 s** como tempo base. Culturas do save 2.0 preservam a proporção de crescimento na atualização.
+- Interface e controles verificados a partir de **960 × 640**, além de telas maiores e da edição móvel no navegador.
+
+Continuam disponíveis:
+
 - Fazenda de **41 × 29 blocos**, quase três vezes maior, com mapa e câmera que acompanha você.
 - **4 minutos de dia e 1 de noite**. Lobos destroem canteiros; defenda com a foice e repare com a enxada pagando ouro.
 - **24 sementes iniciais de capim** e 8 culturas: capim, trigo, alface, cenoura, milho, batata, tomate e abóbora.
@@ -30,7 +42,7 @@ Novidades:
 - **6 raridades × 4 graus**. Funda 5 foices iguais para ir do grau 4 ao 3, depois 2 e 1.
 - Pedidos de colheita, construções, rebirth e progresso salvo. `MONEY` continua disponível para ouro e diamantes infinitos durante testes.
 
-**Atualização:** mantenha seu perfil em `%APPDATA%\Capim-e-Cia`. A versão migra o progresso 1.1 e guarda uma cópia de segurança do save antigo. A pausa, os menus e o jogo fechado suspendem a simulação: lobos não atacam enquanto você está fora.
+**Atualização:** mantenha seu perfil em `%APPDATA%\Capim-e-Cia`. A versão migra o progresso 1.1 e 2.0 e guarda uma cópia de segurança do save antigo. A pausa, os menus e o jogo fechado suspendem a simulação: lobos não atacam enquanto você está fora.
 
 O aplicativo foi validado no Electron/Linux. O executável não foi executado em Windows neste ambiente. Esta é uma versão de testes sem assinatura digital de editor.
 

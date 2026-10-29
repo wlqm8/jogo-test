@@ -348,7 +348,7 @@ export class Garden extends FarmLife {
   serialize() {
     const { x, y, facing } = this.player;
     return JSON.stringify({
-      version: 3,
+      version: 4,
       scythes: this.scythes,
       boxesOpened: this.boxesOpened,
       coins: this.coins,
@@ -374,7 +374,7 @@ export class Garden extends FarmLife {
       const validCount = (n) => Number.isSafeInteger(n) && n >= 0 && n < 1e12;
       if (
         !data ||
-        ![1, 2, 3].includes(data.version) ||
+        ![1, 2, 3, 4].includes(data.version) ||
         ![data.coins, data.cutCount, data.totalEarned].every(validCount) ||
         !Number.isInteger(data.level) ||
         data.level < 0 ||
@@ -386,7 +386,7 @@ export class Garden extends FarmLife {
         rebirths = data.rebirths ?? 0,
         bonusCarry = data.bonusCarry ?? 0;
       if (
-        data.version === 3 &&
+        data.version >= 3 &&
         (!Array.isArray(data.scythes) ||
           data.scythes.length !== SCYTHES.length ||
           !data.scythes.every(validCount) ||
@@ -396,7 +396,25 @@ export class Garden extends FarmLife {
         return false;
       const legacy = data.version === 1;
       const baseTiles = legacy ? createGarden(now, 0, 25, 17) : this.tiles;
-      if (!legacy && !this.validateLife(data.life)) return false;
+      const life =
+        data.version < 4 && data.life
+          ? {
+              ...data.life,
+              buildings: { cistern: 0, fence: 0, compost: 0 },
+              claimedQuests: [],
+              protectedNights: 0,
+            }
+          : data.life;
+      // Version 2.0 used 20 seconds for planted capim. Keep its growth fraction
+      // when adopting the requested 30-second base time.
+      if (data.version === 3 && Array.isArray(life?.plots))
+        life.plots = life.plots.map((row) => {
+          if (!Array.isArray(row) || row[2]?.type !== "grass") return row;
+          const copy = [...row];
+          copy[2] = { ...row[2], progress: row[2].progress * 1.5 };
+          return copy;
+        });
+      if (!legacy && !this.validateLife(life)) return false;
       if (
         typeof infiniteMoney !== "boolean" ||
         !Number.isInteger(farmLevel) ||
@@ -484,8 +502,8 @@ export class Garden extends FarmLife {
       };
       for (const [x, y, variant, cutAt] of data.grass)
         Object.assign(this.tileAt(x, y), { variant, cutAt });
-      if (!legacy) this.restoreLife(data.life);
-      if (data.version === 3) {
+      if (!legacy) this.restoreLife(life);
+      if (data.version >= 3) {
         this.scythes = [...data.scythes];
         this.boxesOpened = data.boxesOpened;
       } else {

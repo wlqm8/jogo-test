@@ -304,6 +304,7 @@
                 >Você ganhou 24 sementes de capim. Selecione Plantar para
                 começar.</span
               >
+              <button id="tip-action" type="button" hidden>Plantar</button>
             </div>
             <div id="threat-status" class="threat-status" hidden></div>
             <div class="minimap-wrap">
@@ -422,7 +423,10 @@
               ><button data-equip="water" title="Balde: regar">
                 <svg><use href="#i-bucket" /></svg><strong>Balde</strong
                 ><small>Regar · poço</small></button
-              ><button data-equip="repair" title="Enxada: plantar e reparar">
+              ><button
+                data-equip="plant"
+                title="Enxada: plantar (2) e reparar (4)"
+              >
                 <svg><use href="#i-hoe" /></svg><strong>Enxada</strong
                 ><small>Plantar · reparar</small>
               </button>
@@ -442,6 +446,9 @@
             <h3 id="order-title">Primeiras colheitas</h3>
             <p id="order-progress">Colha 12 tufos de capim</p>
             <button id="claim-order" disabled>Receber bônus</button>
+            <button id="quests-button" class="quests-link">
+              Missões e desafios <span id="quest-badge">0/14</span> ↗
+            </button>
           </section>
           <section class="wallet-card">
             <div>
@@ -725,6 +732,16 @@
           ><strong id="rebirth-count">0</strong> rebirths</span
         >
       </div>
+      <section class="building-section" aria-labelledby="building-heading">
+        <div class="building-heading">
+          <div>
+            <span class="eyebrow">INVISTA O OURO DA COLHEITA</span>
+            <h3 id="building-heading">Uma fazenda que cuida de você.</h3>
+          </div>
+          <small>3 construções · 3 níveis cada</small>
+        </div>
+        <div id="building-grid" class="building-grid"></div>
+      </section>
       <div class="farm-columns">
         <section class="farm-upgrades">
           <div class="section-eyebrow">
@@ -835,7 +852,15 @@
           aria-selected="false"
           aria-controls="panel-skills"
         >
-          ✦ Habilidades
+          ✦ Habilidades</button
+        ><button
+          data-life-tab="quests"
+          id="tab-quests"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panel-quests"
+        >
+          ◈ Missões
         </button>
       </div>
       <section
@@ -877,6 +902,26 @@
           rebirth.
         </p>
         <div id="skill-tree" class="skill-tree"></div>
+      </section>
+      <section
+        id="panel-quests"
+        class="life-panel"
+        role="tabpanel"
+        aria-labelledby="tab-quests"
+        hidden
+      >
+        <div class="quest-intro">
+          <div>
+            <span class="eyebrow">UM OBJETIVO DE CADA VEZ</span>
+            <h3>Pequenas metas, uma grande fazenda.</h3>
+            <p>
+              O progresso é acumulado. Resgate cada recompensa uma vez para
+              abrir o próximo desafio.
+            </p>
+          </div>
+          <strong id="quest-completion">0 / 14</strong>
+        </div>
+        <div id="quest-board" class="quest-board"></div>
       </section>
     </dialog>
     <dialog id="help-dialog" class="modal help-modal">
